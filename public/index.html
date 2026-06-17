@@ -52,6 +52,13 @@
                     <div id="cooldownChartContainer" style="display: none; height: 40px; margin-top: 10px;">
                         <canvas id="safeModeChart"></canvas>
                     </div>
+                    <div class="keep-alive-details" style="font-size: 0.7rem; color: #8b949e; margin-top: 10px; border-top: 1px solid #30363d; padding-top: 5px;">
+                        Resolved IP: <span id="kaResolvedIP" style="color: #c9d1d9;">N/A</span><br>
+                        Current Endpoint: <span id="kaCurrentEndpoint" style="color: #c9d1d9;">/ping</span><br>
+                        Backoff Delay: <span id="kaBackoffDelay" style="color: #c9d1d9;">1s</span><br>
+                        Proxy Health: <span id="kaOverallProxyHealth" style="color: #c9d1d9;">100%</span>
+                    </div>
+
                     <div class="chart-container" style="height: 60px; margin-top: 10px;">
                         <canvas id="watchdogChart"></canvas>
                     </div>
@@ -74,7 +81,12 @@
                 <div class="card status-card">
                     <h3>CPU & Event Loop</h3>
                     <div class="chart-container"><canvas id="cpuLagChart"></canvas></div>
-                    <div id="cpuLagText" class="percent-text">CPU: 0% | Lag: 0ms | Temp: 0°C</div>
+                    <div id="cpuLagText" class="percent-text">CPU: 0% | Lag: 0ms | Temp: 0°C</div> 
+                    <div class="optimizer-status" style="font-size: 0.75rem; color: #8b949e; text-align: center; margin-top: 10px; border-top: 1px solid #30363d; padding-top: 5px;">
+                        Optimizer: <span id="optimizerState" style="color: #c9d1d9;">Normal</span> | 
+                        Concurrency: <span id="adaptiveConcurrency" style="color: #c9d1d9;">0</span> |
+                        High Temp Count: <span id="highTempCount" style="color: #c9d1d9;">0</span>
+                    </div>
                 </div>
 
                 <div class="card status-card">
@@ -102,6 +114,10 @@
                         <div class="stat-item">Integrity: <span id="bpIntegrity" class="val">Stable</span></div>
                         <div class="stat-item">Proxy Pool: <span id="bpProxies" class="val">0 Loaded</span></div>
                         <div class="stat-item">Active Sessions: <span id="bpSessions" class="val">0</span></div>
+                    </div>
+                    <div class="proxy-health-list" style="max-height: 150px; overflow-y: auto; margin-top: 10px; border-top: 1px solid #30363d; padding-top: 5px;">
+                        <h4>Proxy Health Details:</h4>
+                        <div id="detailedProxyStats">No proxies loaded.</div>
                     </div>
                 </div>
 
@@ -134,6 +150,13 @@
         </main>
     </div>
     <script src="/socket.io/socket.io.js"></script>
+    <script src="monitor/sysMonitor.js"></script>
+    <script src="monitor/memMonitor.js"></script>
+    <script src="monitor/targetMonitor.js"></script>
+    <script src="monitor/queueMonitor.js"></script>
+    <script src="monitor/identityMonitor.js"></script>
+    <script src="monitor/aiMonitor.js"></script>
+    <script src="monitor/findingsMonitor.js"></script>
     <script src="scripts.js"></script>
 </body>
 </html>

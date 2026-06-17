@@ -6,6 +6,7 @@
     <title>Security Scanner Dashboard</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
@@ -33,16 +34,47 @@
                         </div>
                         <button type="submit" id="startBtn">Mulai Scan</button>
                         <button type="button" id="attackBtn" style="background: var(--error)">Mulai Attack</button>
+                        <button type="button" id="stopAttackBtn" class="btn-stop" style="display: none;">Stop Attack</button>
                     </div>
                 </form>
             </section>
 
             <section class="monitor-grid">
                 <div class="card status-card">
-                    <h3>System Status</h3>
+                    <h3>System Monitoring</h3>
                     <div id="statusIndicator" class="status idle">Ready</div>
+                    <div class="progress-container">
+                        <div id="progressBar" class="progress-bar"></div>
+                    </div>
+                    <div id="durationCounter" class="duration-counter">Elapsed: 0s</div>
+                    <div id="percentProgress" class="percent-text">0%</div>
+                    <div class="chart-container" style="height: 60px; margin-top: 10px;">
+                        <canvas id="watchdogChart"></canvas>
+                    </div>
+                    <div class="keep-alive-stats" style="font-size: 0.75rem; color: #8b949e; text-align: center; margin-top: 10px; border-top: 1px solid #30363d; padding-top: 5px;">
+                        Keep-Alive: <span id="kaSuccess" style="color: #3fb950;">0</span> OK | 
+                        <span id="kaFailure" style="color: #f85149;">0</span> Fail |
+                        Uptime: <span id="kaUptime" style="color: #58a6ff;">100.00%</span>
+                    </div>
                 </div>
                 
+                <div class="card status-card">
+                    <h3>Memory Monitoring</h3>
+                    <div id="memoryStatus" class="status idle">Normal</div>
+                    <div class="progress-container">
+                        <div id="memoryBar" class="progress-bar" style="background: #f1e05a;"></div>
+                    </div>
+                    <div id="memoryText" class="percent-text">0MB / 512MB (0%)</div>
+                </div>
+
+                <div class="card status-card">
+                    <h3>Target Movement</h3>
+                    <div class="chart-container">
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                    <div id="targetMovement" class="movement-container">Waiting for data...</div>
+                </div>
+
                 <div class="card log-card">
                     <h3>Live Scan Logs</h3>
                     <div id="logTerminal" class="terminal">
@@ -53,6 +85,14 @@
                 <div class="card findings-card">
                     <h3>Security Findings</h3>
                     <div id="findingsList" class="findings"></div>
+                </div>
+
+                <div class="card debug-card">
+                    <div class="card-header">
+                        <h3>Error & Debug Console</h3>
+                        <button id="copyDebugBtn" class="btn-small">Copy Error Logs</button>
+                    </div>
+                    <div id="debugTerminal" class="terminal terminal-error"></div>
                 </div>
             </section>
         </main>

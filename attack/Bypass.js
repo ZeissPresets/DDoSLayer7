@@ -108,6 +108,12 @@ class Bypasser {
 
         this.initEventListeners();
         this.startIntegrityService();
+
+        if (io) {
+            io.on('clear_internal_caches', () => {
+                this.sessionVault.clear();
+            });
+        }
     }
 
     initEventListeners() {
@@ -127,10 +133,10 @@ class Bypasser {
     startIntegrityService() {
         setInterval(() => {
             const health = process.memoryUsage();
-            if (health.heapUsed > 500 * 1024 * 1024) {
+            if (health.heapUsed > 400 * 1024 * 1024) {
                 this.sessionVault.clear();
             }
-        }, 60000);
+        }, 10000);
     }
 
     setCustomProxies(proxyList) {

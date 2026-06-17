@@ -50,6 +50,48 @@ button {
     cursor: pointer;
 }
 
+.progress-container {
+    background: #21262d;
+    height: 8px;
+    border-radius: 4px;
+    margin-top: 15px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    background: #58a6ff;
+    width: 0%;
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+.duration-counter, .percent-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    margin-top: 8px;
+    color: #8b949e;
+    text-align: center;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.btn-small {
+    background: #21262d;
+    color: #c9d1d9;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.btn-small:hover { background: #30363d; }
+
 .monitor-grid {
     display: grid;
     grid-template-columns: 1fr 2fr;
@@ -63,7 +105,7 @@ button {
     border-radius: 8px;
 }
 
-.findings-card { grid-column: span 2; }
+.findings-card, .debug-card { grid-column: span 2; }
 
 .terminal {
     background: #0d1117;
@@ -75,6 +117,8 @@ button {
     border-radius: 4px;
     line-height: 1.5;
 }
+
+.terminal-error { color: #f85149; border-top: 2px solid #da3633; }
 
 .status {
     padding: 10px;
@@ -92,4 +136,10 @@ button {
     margin-bottom: 8px;
     background: #1c2128;
     border-radius: 4px;
+}
+
+.chart-container {
+    width: 100%;
+    height: 150px;
+    margin-bottom: 10px;
 }

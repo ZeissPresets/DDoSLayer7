@@ -248,8 +248,6 @@ class DDoSL7 {
                     latency: latency.toFixed(2),
                     timestamp: new Date().toLocaleTimeString()
                 });
-                const end = performance.now();
-                const latency = end - start;
                 this.ai.analyze(this.stats, latency);
                 this.emitLog(`[AI:${this.ai.state}] HTTP ${res.status} | RTT: ${latency.toFixed(2)}ms`, 'success');
             } catch (err) {
@@ -590,8 +588,8 @@ class DDoSL7 {
         const timestamp = new Date().toLocaleTimeString();
         const formattedMsg = `[${timestamp}] ${msg}`;
         if (this.io) this.io.emit('log', { msg: formattedMsg, type });
-        const color = type === 'error' ? 'red' : (type === 'success' ? 'green' : 'yellow');
-        console.log(chalkcolor);
+        const colorName = type === 'error' ? 'red' : (type === 'success' ? 'green' : 'yellow');
+        console.log(chalkcolorName);
     }
 
     stop() {

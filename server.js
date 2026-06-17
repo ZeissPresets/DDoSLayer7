@@ -5,6 +5,7 @@ const { Server } = require('socket.io');
 const validator = require('validator');
 const { SecurityScanner } = require('./scanning/scanning');
 const { DDoSL7 } = require('./attack/DDoSL7');
+require('./module/proxy');
 
 const app = express();
 const server = http.createServer(app);

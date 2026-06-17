@@ -1,5 +1,5 @@
 const UserAgent = require('user-agents');
-const { HeaderGenerator } = require('headers-generator');
+const { HeaderGenerator } = require('header-generator');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 const { HttpProxyAgent } = require('http-proxy-agent');
 const { v4: uuidv4 } = require('uuid');
@@ -426,7 +426,7 @@ class Bypasser {
                 _data: Array.from({length: 10}, () => uuidv4())
             })
         ];
-        return layersMath.floor(Math.random() * layers.length);
+        return layers[Math.floor(Math.random() * layers.length)]();
     }
 
     simulateHumanInteraction(config) {

@@ -28,9 +28,8 @@ class AttackManager extends events.EventEmitter {
             const sys = await this.getSystemInfo();
             if (this.io) {
                 this.io.emit('system_load', sys);
-                this.broadcastState();
             }
-        }, 5000);
+        }, 2000); // Percepat deteksi load
     }
 
     static startTaskScheduler() {

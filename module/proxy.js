@@ -56,7 +56,8 @@ class ProxyGenerator {
     }
 
     init() {
-        this.rotate();
+        // Berikan jeda 30 detik sebelum rotasi pertama agar startup lancar
+        setTimeout(() => this.rotate(), 30000);
         setInterval(() => this.rotate(), this.intervalTime);
     }
 }

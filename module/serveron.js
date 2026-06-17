@@ -60,7 +60,10 @@ async function init(io) {
     const rawHost = (process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).replace(/\/$/, '');
     const urlObj = new URL(rawHost);
 
-    if (cluster.isMaster) {
+    // Jika di Railway/Render, hindari forking untuk menghemat RAM
+    const isCloud = !!(process.env.RAILWAY_STATIC_URL || process.env.RENDER_EXTERNAL_URL);
+
+    if (cluster.isMaster && !isCloud) {
         // Primary Process: Hanya mengelola Worker dan memancarkan data ke Dashboard
         const watchdogWorker = cluster.fork({ IS_WATCHDOG: 'true' });
 

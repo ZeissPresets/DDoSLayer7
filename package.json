@@ -26,6 +26,10 @@
     "http-proxy-agent": "^7.0.0",
     "uuid": "^9.0.1",
     "cookie": "^0.5.0",
-    "ip": "^2.0.0"
+    "ip": "^2.0.0",
+    "moment": "^2.29.4",
+    "lodash": "^4.17.21",
+    "systeminformation": "^5.21.22",
+    "node-cache": "^5.1.2"
   }
 }

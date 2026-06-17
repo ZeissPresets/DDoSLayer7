@@ -113,7 +113,7 @@ socket.on('scan_complete', (data) => {
     updateStatus(false);
     progressBar.style.width = '100%';
     percentProgress.textContent = '100%';
-    addLog(`Audit Selesai secara mendalam. Laporan: ${data.reportPath}`, 'success');
+    addLog(`Audit Selesai secara mendalam.`, 'success');
 });
 
 // Listen untuk progress attack
@@ -135,11 +135,12 @@ socket.on('attack_progress', (stats) => {
 
 socket.on('target_movement', (data) => {
     const moveLine = `<div class="move-item"><b>[${data.timestamp}]</b> Status: ${data.status} | RTT: ${data.latency}ms</div>`;
-    
     const div = document.createElement('div');
     div.innerHTML = moveLine;
     targetMovement.prepend(div);
-    if (targetMovement.children.length > 10) targetMovement.lastElementChild.remove();
+    while (targetMovement.children.length > 10) {
+        targetMovement.removeChild(targetMovement.lastChild);
+    }
 
     latencyChart.data.labels.push(data.timestamp);
     latencyChart.data.datasets[0].data.push(parseFloat(data.latency));

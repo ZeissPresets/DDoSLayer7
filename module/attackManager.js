@@ -116,6 +116,12 @@ class AttackManager extends events.EventEmitter {
     static async getFullState() {
         const active = Array.from(activeTasks.values());
         let activeRemainingTime = 0;
+        let bypassData = { proxyCount: 0, integrity: 'Stable' };
+
+        if (active.length > 0 && active[0].instance.bypasser) {
+            bypassData.proxyCount = active[0].instance.bypasser.proxies.length;
+            bypassData.integrity = active[0].instance.bypasser.internalIntegrity.substring(0, 8);
+        }
 
         // Hitung sisa waktu tugas yang sedang aktif
         if (active.length > 0) {
@@ -143,7 +149,8 @@ class AttackManager extends events.EventEmitter {
             active: active.map(t => t.data),
             queued: queuedWithWait,
             serverLoad: await this.getSystemInfo(),
-            logs: logBuffer
+            logs: logBuffer,
+            bypass: bypassData
         };
     }
 

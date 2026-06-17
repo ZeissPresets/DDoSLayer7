@@ -24,6 +24,8 @@ const queueCountBadge = document.getElementById('queueCountBadge');
 const aiStateDisplay = document.getElementById('aiStateDisplay');
 const vectorWeights = document.getElementById('vectorWeights');
 const bpProxies = document.getElementById('bpProxies');
+const bpFingerprint = document.getElementById('bpFingerprint');
+const bpIntegrity = document.getElementById('bpIntegrity');
 
 const latencyCtx = document.getElementById('latencyChart').getContext('2d');
 const latencyChart = new Chart(latencyCtx, {
@@ -209,6 +211,11 @@ socket.on('attack_progress', (stats) => {
         smChartContainer.style.display = 'none';
     }
 
+    // Update Identity Panel
+    if (stats.proxyCount !== undefined) bpProxies.textContent = `${stats.proxyCount} Loaded`;
+    if (stats.integrity) bpIntegrity.textContent = stats.integrity;
+    bpFingerprint.textContent = stats.safeMode ? "Restricted" : "Ultra-Deep";
+
     // Update AI Panel
     aiStateDisplay.textContent = stats.aiState || "MAX_THROUGHPUT";
     aiStateDisplay.className = `status ${stats.aiState === 'BYPASS_EVASION' ? 'active' : 'idle'}`;
@@ -288,6 +295,12 @@ socket.on('system_sync', (state) => {
         state.logs.forEach(log => {
             addLog(log.msg, log.type);
         });
+    }
+
+    // Sync Identity Panel
+    if (state.bypass) {
+        bpProxies.textContent = `${state.bypass.proxyCount} Loaded`;
+        bpIntegrity.textContent = state.bypass.integrity;
     }
 
     // Update Active Tasks

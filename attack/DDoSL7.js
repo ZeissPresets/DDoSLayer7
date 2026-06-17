@@ -325,7 +325,7 @@ class DDoSL7 {
                 return;
             }
             this.executeVectors();
-        }, 50);
+        }, 100); // Meningkatkan interval ke 100ms untuk mengurangi Event Loop Lag
     }
 
     activateSafeMode() {

@@ -10,6 +10,7 @@ const dns = require('dns');
 const net = require('net');
 const url = require('url');
 const zlib = require('zlib');
+const antiLag = require('../module/antiLag'); // Import antiLag module
 
 let AttackManager; // Deklarasi di luar agar bisa diakses
 class SecurityScanner {
@@ -50,20 +51,28 @@ class SecurityScanner {
             if (!AttackManager) AttackManager = require('../module/attackManager');
             AttackManager.updateStats(this.targetUrl, { progress: 10, status: 'Initializing' });
 
-            await Promise.all([
-                this.dnsRecon(),
-                // ... (modul scanning lainnya)
-                this.portScan(),
-                this.checkSecurityHeaders(),
-                this.fingerprintStack(),
-                this.checkRobotsTxt(),
-                this.checkSecurityTxt(),
-                this.fuzzSensitiveDirectories(),
-                this.auditSSL(),
-                this.analyzeHTML(),
-                this.checkCORS(),
-                this.testVulnerabilities()
-            ]);
+            // Jalankan modul audit secara sekuensial dengan jeda dinamis
+            await this.dnsRecon();
+            await this.applyDynamicDelay();
+            await this.portScan();
+            await this.applyDynamicDelay();
+            await this.checkSecurityHeaders();
+            await this.applyDynamicDelay();
+            await this.fingerprintStack();
+            await this.applyDynamicDelay();
+            await this.checkRobotsTxt();
+            await this.applyDynamicDelay();
+            await this.checkSecurityTxt();
+            await this.applyDynamicDelay();
+            await this.fuzzSensitiveDirectories();
+            await this.applyDynamicDelay();
+            await this.auditSSL();
+            await this.applyDynamicDelay();
+            await this.analyzeHTML();
+            await this.applyDynamicDelay();
+            await this.checkCORS();
+            await this.applyDynamicDelay();
+            await this.testVulnerabilities();
 
             if (!AttackManager) AttackManager = require('../module/attackManager');
             AttackManager.updateStats(this.targetUrl, { progress: 100, status: 'Completed' });
@@ -74,6 +83,15 @@ class SecurityScanner {
             if (!AttackManager) AttackManager = require('../module/attackManager');
             AttackManager.complete(this.targetUrl, 'failed');
         }
+    }
+
+    async applyDynamicDelay() {
+        const baseScanDelay = 1000; // 1 detik jeda dasar antar modul
+        const delay = baseScanDelay * antiLag.getThrottleMultiplier();
+        if (delay > baseScanDelay) {
+            this.emitLog(`  [i] Scanner throttling due to system pressure. Delaying next module by ${delay.toFixed(0)}ms.`, 'warn');
+        }
+        await new Promise(resolve => setTimeout(resolve, delay));
     }
 
     async dnsRecon() {

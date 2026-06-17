@@ -70,7 +70,7 @@ class SystemOptimizer {
                 if (cpuLoad > this.cpuLimit) reason.push(`CPU: ${cpuLoad.toFixed(0)}%`);
                 if (currentTemp > this.tempLimit) reason.push(`Temp: ${currentTemp}°C`);
 
-                if (lag > 1000) this.logInternal(`GUARDIAN: High System Pressure [${reason.join(' | ')}]`, 'warn');
+                if (lag > 500) this.logInternal(`GUARDIAN: High System Pressure [${reason.join(' | ')}]`, 'warn');
                 this.emergencyCleanup(lag, cpuLoad, currentTemp, heapUsage);
             } else {
                 // Reset status jika kondisi membaik
@@ -108,7 +108,8 @@ class SystemOptimizer {
 
         // Logika Auto-Restart Engine DDoSL7
         // Jika Event Loop sangat macet (lag > 1000ms) atau CPU sangat tinggi (>95%)
-        if (antiLag.getStatus().state === 'PANIC' || lag > 2500 || cpu > 98 || temp > 85) {
+        const alStatus = antiLag.getStatus();
+        if (alStatus.state === 'PANIC' || parseFloat(alStatus.backpressure) > 90 || lag > 2500 || cpu > 98) {
             this.isRestarting = true;
             this.logInternal(`GUARDIAN: Initiating DDoSL7 Engine Auto-Restart due to severe congestion.`, 'error');
             this.attackManager.getFullState().then(state => {

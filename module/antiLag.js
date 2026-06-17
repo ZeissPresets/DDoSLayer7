@@ -10,15 +10,18 @@ const os = require('os');
 class AntiLagSystem extends EventEmitter {
     constructor() {
         super();
-        this.emaLag = 0; // Menggunakan Exponential Moving Average
+        this.emaLagFast = 0; // Deteksi spike mendadak
+        this.emaLagSlow = 0; // Deteksi tren jangka panjang
         this.backpressure = 0;
-        this.alpha = 0.2; // Faktor bobot untuk EMA (0.1 - 0.3 disarankan)
-        this.checkInterval = 100;
+        this.alphaFast = 0.5;
+        this.alphaSlow = 0.05;
+        this.checkInterval = 50; // Interval lebih rapat (50ms) untuk presisi tinggi
         this.lastCongestionEmit = 0;
+        this.maxMemory = 480 * 1024 * 1024; // Batas waspada RAM
         this.thresholds = {
-            warning: 100,
-            critical: 400,
-            panic: 1200
+            warning: 60,   // ms
+            critical: 250, // ms
+            panic: 800     // ms
         };
         this.isActive = false;
     }
@@ -34,35 +37,45 @@ class AntiLagSystem extends EventEmitter {
     }
 
     monitor() {
-        let lastCheck = performance.now();
-
         const tick = () => {
             if (!this.isActive) return;
             
-            const now = performance.now();
-            const currentLag = Math.max(0, now - lastCheck - this.checkInterval);
-            lastCheck = now;
-
-            this.updateStats(currentLag);
-
-            // Menggunakan setTimeout dikombinasikan dengan durasi dinamis
-            setTimeout(tick, this.checkInterval);
+            const start = performance.now();
+            
+            // Menggunakan setImmediate untuk mengukur jeda antrian Event Loop yang sebenarnya
+            setImmediate(() => {
+                const currentLag = performance.now() - start;
+                this.updateStats(currentLag);
+                
+                // Dinamis interval: jika berat, monitor lebih kencang
+                const nextCheck = this.backpressure > 0.7 ? 20 : this.checkInterval;
+                setTimeout(tick, nextCheck);
+            });
         };
 
-        setTimeout(tick, this.checkInterval);
+        tick();
     }
 
     updateStats(lag) {
-        // Kalkulasi EMA: Lebih ringan daripada looping array history
-        this.emaLag = (lag * this.alpha) + (this.emaLag * (1 - this.alpha));
+        // 1. Kalkulasi Dual-EMA
+        this.emaLagFast = (lag * this.alphaFast) + (this.emaLagFast * (1 - this.alphaFast));
+        this.emaLagSlow = (lag * this.alphaSlow) + (this.emaLagSlow * (1 - this.alphaSlow));
         
-        // Kalkulasi Backpressure: Menggunakan kuadratik agar pengereman lebih kuat di titik kritis
-        const rawPressure = Math.min(1, this.emaLag / this.thresholds.panic);
-        this.backpressure = Math.pow(rawPressure, 2); 
+        // 2. Faktor Memori (RSS)
+        const memUsage = process.memoryUsage().rss;
+        const memFactor = Math.min(1, memUsage / this.maxMemory);
 
-        if (this.emaLag > this.thresholds.critical && Date.now() - this.lastCongestionEmit > 5000) {
+        // 3. Kombinasi Tekanan: 70% Lag + 30% RAM
+        const lagPressure = Math.min(1, this.emaLagFast / this.thresholds.panic);
+        const combinedPressure = (lagPressure * 0.7) + (memFactor * 0.3);
+
+        // 4. Skalabilitas Kuadratik: Rem makin dalam jika tekanan makin tinggi
+        this.backpressure = Math.pow(combinedPressure, 2); 
+
+        // Emit event jika kondisi kritis (Debounced 5s)
+        if (this.emaLagFast > this.thresholds.critical && Date.now() - this.lastCongestionEmit > 5000) {
             this.lastCongestionEmit = Date.now();
-            this.emit('congestion', { lag: this.emaLag, factor: this.backpressure });
+            this.emit('congestion', { lag: this.emaLagFast, factor: this.backpressure });
         }
     }
 
@@ -72,8 +85,8 @@ class AntiLagSystem extends EventEmitter {
      */
     getThrottleMultiplier() {
         if (this.backpressure < 0.1) return 1;
-        // Multiplier meningkat tajam saat mendekati panic threshold
-        return 1 + (this.backpressure * 15); 
+        // Throttling yang lebih agresif (hingga 25x delay)
+        return 1 + (this.backpressure * 25); 
     }
 
     /**
@@ -81,19 +94,20 @@ class AntiLagSystem extends EventEmitter {
      * Usage: const threads = Math.floor(maxThreads * antiLag.getEfficiencyFactor())
      */
     getEfficiencyFactor() {
-        // Inverse of backpressure with a floor of 10%
-        return Math.max(0.1, 1 - this.backpressure);
+        // Kekuatan serangan dikurangi drastis jika sistem macet
+        return Math.max(0.05, 1 - this.backpressure);
     }
 
     getStatus() {
         let state = 'HEALTHY';
-        if (this.emaLag > this.thresholds.panic) state = 'PANIC';
-        else if (this.emaLag > this.thresholds.critical) state = 'CRITICAL';
-        else if (this.emaLag > this.thresholds.warning) state = 'WARNING';
+        if (this.emaLagFast > this.thresholds.panic) state = 'PANIC';
+        else if (this.emaLagFast > this.thresholds.critical) state = 'CRITICAL';
+        else if (this.emaLagFast > this.thresholds.warning) state = 'WARNING';
 
         return {
             state,
-            lag: this.emaLag.toFixed(2),
+            lag: this.emaLagFast.toFixed(2),
+            trend: this.emaLagSlow.toFixed(2),
             backpressure: (this.backpressure * 100).toFixed(1) + '%',
             loadAvg: os.loadavg()[0].toFixed(2)
         };

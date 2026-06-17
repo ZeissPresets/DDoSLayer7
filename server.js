@@ -45,9 +45,6 @@ app.post('/api/scan', async (req, res) => {
         const scanner = new SecurityScanner(url, io, duration);
         AttackManager.register('scan', url, scanner, duration);
         
-        // Jalankan scan di background agar tidak memblokir response HTTP
-        scanner.startFullAudit().catch(err => console.error(`[Scanner Error] ${err.message}`));
-
         res.json({ 
             status: "Processing",
             message: "Deep scanning telah dimulai di latar belakang.",

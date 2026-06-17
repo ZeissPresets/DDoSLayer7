@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Scanner Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Security Scanner <span class="version">v1.0</span></h1>
+            <p>Advanced Vulnerability & Deep Scan Monitoring</p>
+        </header>
+
+        <main>
+            <section class="config-panel">
+                <form id="scanForm">
+                    <div class="input-row">
+                        <div class="field">
+                            <label for="url">Target URL</label>
+                            <input type="url" id="url" placeholder="https://target-website.com" required>
+                        </div>
+                        <div class="field">
+                            <label for="duration">Interval Monitoring</label>
+                            <select id="duration">
+                                <option value="1m">1 Menit (Quick Check)</option>
+                                <option value="1h">1 Jam (Deep Scan)</option>
+                                <option value="24h">24 Jam (Continuous)</option>
+                                <option value="48h">48 Jam (Extended)</option>
+                            </select>
+                        </div>
+                        <button type="submit" id="startBtn">Mulai Scan</button>
+                        <button type="button" id="attackBtn" style="background: var(--error)">Mulai Attack</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="monitor-grid">
+                <div class="card status-card">
+                    <h3>System Status</h3>
+                    <div id="statusIndicator" class="status idle">Ready</div>
+                </div>
+                
+                <div class="card log-card">
+                    <h3>Live Scan Logs</h3>
+                    <div id="logTerminal" class="terminal">
+                        <span class="prompt">></span> Waiting for target...
+                    </div>
+                </div>
+
+                <div class="card findings-card">
+                    <h3>Security Findings</h3>
+                    <div id="findingsList" class="findings"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="scripts.js"></script>
+</body>
+</html>

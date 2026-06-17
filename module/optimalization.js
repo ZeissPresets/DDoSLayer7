@@ -15,6 +15,7 @@ class SystemOptimizer {
         this.isThrottling = false;
         this.highTempCounter = 0; // Menghitung berapa lama suhu tinggi
         this.highTempThreshold = 10; 
+        this.lastGC = 0;
         this.isRestarting = false;
         this.isCritical = false;
         this.init();
@@ -46,11 +47,11 @@ class SystemOptimizer {
             const currentTemp = cpuTemp.main > 0 ? cpuTemp.main : 0; // Handle cases where temp sensor is unavailable
 
             // Logika Emergency Brake
-            if (lag > 600 || cpuLoad > 95 || heapUsage > this.maxHeap) {
+            if (lag > 800 || cpuLoad > 95 || heapUsage > this.maxHeap) {
                 this.isCritical = true;
                 this.isThrottling = true;
                 
-                if (currentTemp > 80) { // Jika suhu di atas 80, mulai hitung
+                if (currentTemp > 80) { 
                     this.highTempCounter++;
                 } else {
                     this.highTempCounter = 0;
@@ -61,24 +62,29 @@ class SystemOptimizer {
                 if (cpuLoad > this.cpuLimit) reason.push(`CPU: ${cpuLoad.toFixed(0)}%`);
                 if (currentTemp > this.tempLimit) reason.push(`Temp: ${currentTemp}°C`);
 
-                this.logInternal(`GUARDIAN: Emergency intervention [${reason.join(' | ')}]`, 'error');
-                this.emergencyCleanup(lag, cpuLoad, cpuTemp.main);
+                if (lag > 1000) this.logInternal(`GUARDIAN: High System Pressure [${reason.join(' | ')}]`, 'warn');
+                this.emergencyCleanup(lag, cpuLoad, currentTemp, heapUsage);
             } else {
                 this.isCritical = false;
                 this.isThrottling = false;
             }
 
             // Proactive GC
-            if (heapUsage > (this.maxHeap * 0.8) && global.gc) {
+            if (heapUsage > (this.maxHeap * 0.85) && global.gc && Date.now() - this.lastGC > 10000) {
+                this.lastGC = Date.now();
                 global.gc();
             }
         }, 1000);
     }
 
-    emergencyCleanup(lag, cpu, temp = 0) {
+    emergencyCleanup(lag, cpu, temp = 0, heap = 0) {
         if (this.isRestarting) return; // Hindari restart berulang
 
-        if (global.gc) global.gc();
+        // Only GC if heap is actually high and we haven't GC'd in the last 15 seconds
+        if (global.gc && heap > this.maxHeap && Date.now() - this.lastGC > 15000) {
+            this.lastGC = Date.now();
+            global.gc();
+        }
 
         // Sinyal ke Bypasser untuk mengosongkan cache sesi
         const AttackManager = require('./attackManager');

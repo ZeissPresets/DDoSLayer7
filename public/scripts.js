@@ -24,6 +24,7 @@ const queueCountBadge = document.getElementById('queueCountBadge');
 const aiStateDisplay = document.getElementById('aiStateDisplay');
 const vectorWeights = document.getElementById('vectorWeights');
 const bpProxies = document.getElementById('bpProxies');
+const bpSessions = document.getElementById('bpSessions');
 const bpFingerprint = document.getElementById('bpFingerprint');
 const bpIntegrity = document.getElementById('bpIntegrity');
 
@@ -213,6 +214,7 @@ socket.on('attack_progress', (stats) => {
 
     // Update Identity Panel
     if (stats.proxyCount !== undefined) bpProxies.textContent = `${stats.proxyCount} Loaded`;
+    if (stats.sessionCount !== undefined) bpSessions.textContent = stats.sessionCount;
     if (stats.integrity) bpIntegrity.textContent = stats.integrity;
     bpFingerprint.textContent = stats.safeMode ? "Restricted" : "Ultra-Deep";
 
@@ -228,7 +230,21 @@ socket.on('attack_progress', (stats) => {
 });
 
 socket.on('target_movement', (data) => {
-    const moveLine = `<div class="move-item"><b>[${data.timestamp}]</b> Status: ${data.status} | RTT: ${data.latency}ms</div>`;
+    const healthColor = data.health > 70 ? '#3fb950' : (data.health > 40 ? '#d29922' : '#da3633');
+    const moveLine = `
+        <div class="move-item" style="border-left: 3px solid ${healthColor}; margin-bottom: 10px; background: #1c2128; padding: 10px; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 5px;">
+                <span style="color: #58a6ff; font-weight: bold;">[${data.timestamp}]</span>
+                <span style="color: ${data.status < 400 ? '#3fb950' : '#da3633'}">HTTP ${data.status}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.75rem; color: #8b949e;">
+                <div>RTT: <span style="color: #c9d1d9">${data.latency}ms</span></div>
+                <div>EMA: <span style="color: #c9d1d9">${data.ema}ms</span></div>
+                <div>Jitter: <span style="color: #c9d1d9">${data.jitter}ms</span></div>
+                <div>Health: <span style="color: ${healthColor}">${data.health}%</span></div>
+            </div>
+        </div>
+    `;
     const div = document.createElement('div');
     div.innerHTML = moveLine;
     targetMovement.prepend(div);
@@ -492,8 +508,19 @@ function addDebugLog(msg) {
     const formattedMsg = `[${timestamp}] DEBUG_ERROR: ${msg}`;
     errorLogs.push(formattedMsg);
     
+    // Coba parse jika pesan adalah objek Error
+    let displayMsg = formattedMsg;
+    try {
+        const errorObj = JSON.parse(msg);
+        if (errorObj.stack) displayMsg = `[${timestamp}] DEBUG_ERROR: ${errorObj.message}\n${errorObj.stack}`;
+    } catch (e) { /* not a JSON error object */ }
+
+    errorLogs.push(displayMsg);
+    
     const div = document.createElement('div');
     div.textContent = formattedMsg;
+    div.textContent = displayMsg;
+    div.style.whiteSpace = 'pre-wrap'; // Agar stack trace tampil rapi
     debugTerminal.appendChild(div);
     debugTerminal.scrollTop = debugTerminal.scrollHeight;
 }

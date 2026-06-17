@@ -1,6 +1,7 @@
 const si = require('systeminformation');
 const os = require('os');
 const EventEmitter = require('events');
+const antiLag = require('./antiLag');
 
 class SystemMonitor extends EventEmitter {
     constructor(io) {
@@ -54,7 +55,8 @@ class SystemMonitor extends EventEmitter {
                     read: (fs.rx_sec / 1024).toFixed(2),
                     write: (fs.wx_sec / 1024).toFixed(2)
                 },
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                antiLag: antiLag.getStatus()
             };
 
             this.updateHistory(telemetry);

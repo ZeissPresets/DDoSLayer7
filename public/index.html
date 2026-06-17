@@ -82,6 +82,9 @@
                     <h3>CPU & Event Loop</h3>
                     <div class="chart-container"><canvas id="cpuLagChart"></canvas></div>
                     <div id="cpuLagText" class="percent-text">CPU: 0% | Lag: 0ms | Temp: 0°C</div> 
+                    <div class="sparkline-container" style="height: 30px; margin-top: 5px; opacity: 0.8;">
+                        <canvas id="bpSparkline"></canvas>
+                    </div>
                     <div class="optimizer-status" style="font-size: 0.75rem; color: #8b949e; text-align: center; margin-top: 10px; border-top: 1px solid #30363d; padding-top: 5px;">
                         Optimizer: <span id="optimizerState" style="color: #c9d1d9;">Normal</span> | 
                         Concurrency: <span id="adaptiveConcurrency" style="color: #c9d1d9;">0</span> |

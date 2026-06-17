@@ -14,7 +14,7 @@ let backoffDelay = 1000; // Initial delay 1 second
 let proxyPool = [];
 let resolvedIP = null;
 let currentProxyIndex = 0;
-let proxyStats = new Map(); // Melacak kesehatan proxy: { fails: 0, lastTry: Date }
+let proxyStats = new Map(); // Melacak kesehatan proxy: { fails: 0, lastTry: Date, lastLatency: 0, healthScore: 100 }
 const MAX_PROXY_FAILS = 3;
 const PROXY_COOLDOWN = 60000; // 1 menit cooldown untuk proxy bermasalah
 
@@ -137,7 +137,7 @@ async function init(io) {
         // Reset backoff delay if uptime is normal
         backoffDelay = 1000;
         currentEndpointIndex = 0; // Reset to default endpoint
-        
+
         const proxy = this.getBestProxy();
         await sendPing(rawHost, io, internalEndpoints[currentEndpointIndex], proxy);
         setTimeout(watchdog, 15000 + jitter); // Lebih lambat sedikit untuk stealth
@@ -164,6 +164,22 @@ async function init(io) {
     };
 
     watchdog();
+}
+
+function getProxyHealthScore(proxy) {
+    const stat = proxyStats.get(proxy);
+    if (!stat) return 100;
+    let score = 100;
+    score -= stat.fails * 10; // Setiap kegagalan mengurangi 10 poin
+    if (stat.lastLatency > 5000) score -= 20; // Latensi tinggi
+    if (stat.fails >= MAX_PROXY_FAILS) score -= 50; // Hampir mati
+    return Math.max(0, score);
+}
+
+function getOverallProxyHealth() {
+    if (proxyPool.length === 0) return 100;
+    const totalScore = Array.from(proxyPool).reduce((sum, p) => sum + getProxyHealthScore(p), 0);
+    return (totalScore / proxyPool.length).toFixed(0);
 }
 
 async function sendPing(host, io, endpoint = '/ping', proxyUrl = null, method = 'GET') {
@@ -208,7 +224,7 @@ async function sendPing(host, io, endpoint = '/ping', proxyUrl = null, method = 
         
         const latency = performance.now() - start;
         if (proxyUrl) {
-            proxyStats.set(proxyUrl, { fails: 0, lastTry: Date.now(), lastLatency: latency });
+            proxyStats.set(proxyUrl, { fails: 0, lastTry: Date.now(), lastLatency: latency, healthScore: getProxyHealthScore(proxyUrl) });
         }
     } catch (e) {
         state.failure++;
@@ -226,15 +242,37 @@ async function sendPing(host, io, endpoint = '/ping', proxyUrl = null, method = 
                 lastTry: Date.now() 
             });
         }
+        const latency = performance.now() - start; // Catat latensi kegagalan juga
+        if (proxyUrl) {
+            const stat = proxyStats.get(proxyUrl);
+            if (stat) proxyStats.set(proxyUrl, { ...stat, lastLatency: latency, healthScore: getProxyHealthScore(proxyUrl) });
+        }
     } finally {
         clearTimeout(timeoutId);
     }
 
     // Kirim data ke Primary process melalui IPC
     if (process.send) {
-        process.send({ type: 'watchdog_stats', data: state });
+        process.send({ 
+            type: 'watchdog_stats', 
+            data: { 
+                ...state, 
+                resolvedIP: resolvedIP,
+                currentEndpoint: internalEndpoints[currentEndpointIndex],
+                backoffDelay: backoffDelay,
+                overallProxyHealth: getOverallProxyHealth(),
+                detailedProxyStats: Array.from(proxyStats.entries()).map(([url, stats]) => ({ url, ...stats }))
+            } 
+        });
     } else if (io) {
-        io.emit('watchdog_stats', state);
+        io.emit('watchdog_stats', { 
+            ...state, 
+            resolvedIP: resolvedIP,
+            currentEndpoint: internalEndpoints[currentEndpointIndex],
+            backoffDelay: backoffDelay,
+            overallProxyHealth: getOverallProxyHealth(),
+            detailedProxyStats: Array.from(proxyStats.entries()).map(([url, stats]) => ({ url, ...stats }))
+        });
     }
 }
 

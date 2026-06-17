@@ -18,10 +18,10 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 
 const memoryManager = new MemoryManager(io);
-optimizer.init(); // Pastikan optimizer diinisialisasi
 AttackManager.init(io);
+optimizer.setAttackManager(AttackManager); // Pass AttackManager ke optimizer
 memoryManager.start();
-serveron.init(io);
+serveron.init(io); // serveron.js akan menggunakan AttackManager.io untuk log
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));

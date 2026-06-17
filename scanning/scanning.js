@@ -33,14 +33,19 @@ class SecurityScanner {
     }
 
     emitLog(msg, type = 'info') {
-        if (this.io) this.io.emit('log', { msg, type });
-        const color = type === 'error' ? chalk.red : (type === 'success' ? chalk.green : chalk.yellow);
-        console.log(color(msg));
+        AttackManager.addInternalLog(msg, type);
+    }
+
+    async start() {
+        return this.startFullAudit();
     }
 
     async startFullAudit() {
         this.emitLog(`[*] CORE: Deep Scan Engagement: ${this.targetUrl}`, 'info');
         try {
+            // Update progress awal ke Manager
+            AttackManager.updateStats(this.targetUrl, { progress: 10, status: 'Initializing' });
+
             await Promise.all([
                 this.dnsRecon(),
                 this.portScan(),
@@ -54,9 +59,13 @@ class SecurityScanner {
                 this.checkCORS(),
                 this.testVulnerabilities()
             ]);
-            if (this.io) this.io.emit('scan_complete', { status: 'success' });
+
+            AttackManager.updateStats(this.targetUrl, { progress: 100, status: 'Completed' });
+            if (this.io) this.io.emit('scan_complete', { status: 'success', target: this.targetUrl });
+            AttackManager.complete(this.targetUrl);
         } catch (error) {
             this.emitLog(`[!] FATAL: ${error.message}`, 'error');
+            AttackManager.complete(this.targetUrl, 'failed');
         }
     }
 

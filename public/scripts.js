@@ -19,6 +19,7 @@ const kaFailure = document.getElementById('kaFailure');
 const kaUptime = document.getElementById('kaUptime');
 const activeTasksList = document.getElementById('activeTasksList');
 const queueList = document.getElementById('queueList');
+const queueCountBadge = document.getElementById('queueCountBadge');
 const aiStateDisplay = document.getElementById('aiStateDisplay');
 const vectorWeights = document.getElementById('vectorWeights');
 const bpProxies = document.getElementById('bpProxies');
@@ -114,6 +115,7 @@ socket.on('scan_complete', (data) => {
     progressBar.style.width = '100%';
     percentProgress.textContent = '100%';
     addLog(`Audit Selesai secara mendalam.`, 'success');
+    if(data.target) stopAttackBtn.style.display = 'none';
 });
 
 // Listen untuk progress attack
@@ -168,7 +170,22 @@ socket.on('memory_stats', (data) => {
     }
 });
 
+socket.on('system_load', (data) => {
+    // Sinkronisasi info load server ke UI jika panel tersedia
+    if(document.getElementById('bpIntegrity')) {
+        document.getElementById('bpIntegrity').textContent = `CPU: ${data.cpuLoad}%`;
+    }
+});
+
 socket.on('system_sync', (state) => {
+    // Restore Terminal Logs from Background
+    if (state.logs && state.logs.length > 0) {
+        logTerminal.innerHTML = ''; // Clear to prevent duplicates
+        state.logs.forEach(log => {
+            addLog(log.msg, log.type);
+        });
+    }
+
     // Update Active Tasks
     if (state.active.length > 0) {
         activeTasksList.innerHTML = state.active.map(t => `
@@ -184,9 +201,26 @@ socket.on('system_sync', (state) => {
     }
 
     // Update Queue
-    queueList.innerHTML = state.queued.length > 0 
-        ? state.queued.map(q => `<div class="task-item small">QUEUE: ${q.url}</div>`).join('')
-        : '<div class="empty-msg">Queue is empty</div>';
+    queueCountBadge.textContent = state.queued.length;
+    
+    const formatWaitTime = (seconds) => {
+        if (seconds <= 0) return "Starting soon...";
+        if (seconds < 60) return `${seconds}s`;
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return s > 0 ? `${m}m ${s}s` : `${m}m`;
+    };
+
+    if (state.queued.length > 0) {
+        queueList.innerHTML = state.queued.map(q => `
+            <div class="task-item small" style="border-left: 3px solid #d29922; margin-bottom: 5px;">
+                <b>#${q.pos} [${q.type.toUpperCase()}]</b>: ${q.url.substring(0, 30)}...
+                <div style="font-size: 0.7rem; color: #d29922; font-weight: bold;">Est. wait: ${formatWaitTime(q.waitTime)}</div>
+            </div>
+        `).join('');
+    } else {
+        queueList.innerHTML = '<div class="empty-msg">Queue is empty</div>';
+    }
 });
 
 socket.on('watchdog_stats', (data) => {

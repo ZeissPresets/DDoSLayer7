@@ -3,10 +3,13 @@ const _ = require('lodash');
 const si = require('systeminformation');
 const NodeCache = require('node-cache');
 const events = require('events');
+const DurationManager = require('./duration');
 
 const stateCache = new NodeCache({ stdTTL: 3600 }); // Cache untuk state terakhir per task
 const activeTasks = new Map(); // Map untuk menyimpan instance task yang sedang berjalan
 const taskQueue = []; // Antrian untuk task yang menunggu
+const logBuffer = []; // Buffer untuk menyimpan log terminal latar belakang
+const MAX_LOGS = 100;
 
 class AttackManager extends events.EventEmitter {
     static io = null;
@@ -42,12 +45,15 @@ class AttackManager extends events.EventEmitter {
         const { type, url, duration, instance } = taskDetails;
         const taskData = {
             id: `${type}_${Date.now()}`,
-            type, url, duration,
+            type, 
+            url, 
+            duration,
             startTime: moment().toISOString(),
             status: 'running',
             stats: {}
         };
         activeTasks.set(url, { instance, data: taskData });
+        this.addInternalLog(`[SYSTEM] Background task started: ${type.toUpperCase()} on ${url}`, 'success');
         instance.start().catch(err => this.complete(url, 'failed'));
     }
 
@@ -57,6 +63,15 @@ class AttackManager extends events.EventEmitter {
         if (activeTasks.size >= 1) taskQueue.push(taskDetails);
         else this.executeTask(taskDetails);
         this.broadcastState();
+    }
+
+    static addInternalLog(msg, type = 'info') {
+        const logEntry = { msg, type, timestamp: new Date().toLocaleTimeString() };
+        logBuffer.push(logEntry);
+        if (logBuffer.length > MAX_LOGS) logBuffer.shift();
+        if (this.io) {
+            this.io.emit('log', logEntry);
+        }
     }
 
     static async updateStats(url, stats) {
@@ -81,6 +96,7 @@ class AttackManager extends events.EventEmitter {
         const task = activeTasks.get(url);
         if (task) {
             activeTasks.delete(url);
+            this.addInternalLog(`[SYSTEM] Task completed: ${url} (${reason})`, 'info');
             this.broadcastState();
         }
     }
@@ -96,10 +112,36 @@ class AttackManager extends events.EventEmitter {
     }
 
     static async getFullState() {
+        const active = Array.from(activeTasks.values());
+        let activeRemainingTime = 0;
+
+        // Hitung sisa waktu tugas yang sedang aktif
+        if (active.length > 0) {
+            const task = active[0].data;
+            const startTimeMs = moment(task.startTime).valueOf();
+            const durationMs = DurationManager.parseToMs(task.duration);
+            const elapsedMs = Date.now() - startTimeMs;
+            activeRemainingTime = Math.max(0, durationMs - elapsedMs);
+        }
+
+        let cumulativeWait = activeRemainingTime;
+        const queuedWithWait = taskQueue.map((t, i) => {
+            const wait = cumulativeWait;
+            cumulativeWait += DurationManager.parseToMs(t.duration);
+            return { 
+                pos: i + 1, 
+                url: t.url, 
+                type: t.type, 
+                duration: t.duration,
+                waitTime: Math.ceil(wait / 1000) // Konversi ke detik
+            };
+        });
+
         return {
-            active: Array.from(activeTasks.values()).map(t => t.data),
-            queued: taskQueue.map(t => ({ url: t.url, type: t.type })),
-            serverLoad: await this.getSystemInfo()
+            active: active.map(t => t.data),
+            queued: queuedWithWait,
+            serverLoad: await this.getSystemInfo(),
+            logs: logBuffer
         };
     }
 

@@ -599,11 +599,8 @@ class DDoSL7 {
 
     emitLog(msg, type) {
         const timestamp = new Date().toLocaleTimeString();
-        const formattedMsg = `[${timestamp}] ${msg}`;
-        const color = type === 'error' ? chalk.red : (type === 'success' ? chalk.green : chalk.yellow);
-        
-        if (this.io) this.io.emit('log', { msg: formattedMsg, type });
-        console.log(color(formattedMsg));
+        const formattedMsg = msg;
+        AttackManager.addInternalLog(formattedMsg, type);
     }
 
     stop() {

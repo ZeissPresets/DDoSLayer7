@@ -1,4 +1,5 @@
 socket.on('system_sync', (state) => {
+    if (!state) return;
     const activeTasksList = document.getElementById('activeTasksList');
     const queueList = document.getElementById('queueList');
     const queueCountBadge = document.getElementById('queueCountBadge');
@@ -40,13 +41,18 @@ socket.on('system_sync', (state) => {
     }
 });
 
-const watchdogChart = new Chart(document.getElementById('watchdogChart').getContext('2d'), {
-    type: 'line',
-    data: { labels: [], datasets: [{ label: 'OK', data: [], borderColor: '#3fb950', borderWidth: 1.5, tension: 0.4, fill: false, pointRadius: 0 }, { label: 'Fail', data: [], borderColor: '#f85149', borderWidth: 1.5, tension: 0.4, fill: false, pointRadius: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { display: false } }, plugins: { legend: { display: false } } }
-});
+let watchdogChart;
+const watchdogEl = document.getElementById('watchdogChart');
+if (watchdogEl) {
+    watchdogChart = new Chart(watchdogEl.getContext('2d'), {
+        type: 'line',
+        data: { labels: [], datasets: [{ label: 'OK', data: [], borderColor: '#3fb950', borderWidth: 1.5, tension: 0.4, fill: false, pointRadius: 0 }, { label: 'Fail', data: [], borderColor: '#f85149', borderWidth: 1.5, tension: 0.4, fill: false, pointRadius: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { display: false } }, plugins: { legend: { display: false } } }
+    });
+}
 
 socket.on('watchdog_stats', (data) => {
+    if (!data) return;
     document.getElementById('kaSuccess').textContent = data.success;
     document.getElementById('kaFailure').textContent = data.failure;
     const total = data.success + data.failure;

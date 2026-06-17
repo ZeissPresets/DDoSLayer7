@@ -12,10 +12,21 @@ class SystemOptimizer {
     constructor() {
         this.maxHeap = 420 * 1024 * 1024;
         this.cpuLimit = 90;
-        this.tempLimit = 75; // Batas suhu aman dalam Celcius
+        this.modes = {
+            eco: 65,     // Mode hemat energi & dingin
+            normal: 70,  // Standar operasional
+            extreme: 82  // Performa maksimal (High Temp)
+        };
+        this.perfMode = 'normal';
+        this.tempLimit = this.modes[this.perfMode];
         this.isThrottling = false;
+        this.isTempThrottling = false; // Flag khusus throttling suhu
         this.highTempCounter = 0; // Menghitung berapa lama suhu tinggi
         this.highTempThreshold = 10; 
+        this.highRamCounter = 0; // Menghitung berapa lama RAM tinggi
+        this.highRamThreshold = 10; // Threshold 10 detik penggunaan RAM tinggi
+        this.lowRamCounter = 0; // Menghitung berapa lama RAM rendah
+        this.lowRamThreshold = 60; // Threshold 60 detik (1 menit) untuk kembali ke normal
         this.lastGC = 0; // Timestamp terakhir GC dilakukan
         this.attackManager = null; // Akan diinisialisasi setelah AttackManager siap
         this.isRestarting = false;
@@ -39,6 +50,16 @@ class SystemOptimizer {
         this.startIntensiveMonitoring();
     }
 
+    setPerformanceMode(mode) {
+        if (this.modes[mode]) {
+            this.perfMode = mode;
+            this.tempLimit = this.modes[mode];
+            this.logInternal(`PERFORMANCE: Profil diubah ke ${mode.toUpperCase()} (Batas Suhu: ${this.tempLimit}°C)`, 'success');
+            return true;
+        }
+        return false;
+    }
+
     startIntensiveMonitoring() {
         let lastLoopCheck = performance.now();
 
@@ -50,27 +71,57 @@ class SystemOptimizer {
             const cpuLoad = (os.loadavg()[0] * 100) / os.cpus().length;
             const heapUsage = v8.getHeapStatistics().used_heap_size;
             const cpuTemp = await si.cpuTemperature();
-            const currentTemp = cpuTemp.main > 0 ? cpuTemp.main : 0; // Handle cases where temp sensor is unavailable
+            const currentTemp = (cpuTemp.main && cpuTemp.main > 0) ? cpuTemp.main : (cpuTemp.max || 0);
             const antiLagStatus = antiLag.getStatus();
 
+            // Deteksi Overheat
+            this.isTempThrottling = currentTemp >= this.tempLimit;
+
+            // Deteksi High RAM (Force Eco mode jika > 200MB terus-menerus)
+            if (heapUsage > 200 * 1024 * 1024) {
+                this.highRamCounter++;
+                if (this.highRamCounter >= this.highRamThreshold && this.perfMode !== 'eco') {
+                    this.setPerformanceMode('eco');
+                    this.logInternal(`PERFORMANCE: Forced to ECO mode due to persistent high RAM usage (>200MB)`, 'warn');
+                }
+            } else {
+                this.highRamCounter = 0;
+            }
+
+            // Deteksi Low RAM (Revert ke Normal jika < 150MB selama 1 menit)
+            if (heapUsage < 150 * 1024 * 1024 && this.perfMode === 'eco') {
+                this.lowRamCounter++;
+                if (this.lowRamCounter >= this.lowRamThreshold) {
+                    this.setPerformanceMode('normal');
+                    this.logInternal(`PERFORMANCE: Restored to NORMAL mode due to stabilized RAM usage (<150MB)`, 'success');
+                    this.lowRamCounter = 0;
+                }
+            } else {
+                this.lowRamCounter = 0;
+            }
+
             // Logika Emergency Brake
-            if (lag > 800 || cpuLoad > 95 || heapUsage > this.maxHeap) {
+            if (lag > 800 || cpuLoad > 95 || heapUsage > this.maxHeap || this.isTempThrottling) {
                 this.isCritical = true;
                 this.isThrottling = true;
                 
-                if (currentTemp > 80) { 
+                if (currentTemp > this.tempLimit) { 
                     this.highTempCounter++;
                 } else {
                     this.highTempCounter = 0;
                 }
 
                 let reason = [];
-                // Hanya tambahkan alasan jika melebihi ambang batas yang relevan
                 if (lag > 500) reason.push(`Lag: ${lag.toFixed(0)}ms`);
                 if (cpuLoad > this.cpuLimit) reason.push(`CPU: ${cpuLoad.toFixed(0)}%`);
                 if (currentTemp > this.tempLimit) reason.push(`Temp: ${currentTemp}°C`);
+                if (this.isTempThrottling) reason.push(`OVERHEAT_BRAKE`);
 
-                if (lag > 500) this.logInternal(`GUARDIAN: High System Pressure [${reason.join(' | ')}]`, 'warn');
+                if (lag > 500 || (this.isTempThrottling && this.highTempCounter % 5 === 0)) {
+                    const msg = `GUARDIAN: High System Pressure [${reason.join(' | ')}] - Throttling Active`;
+                    this.logInternal(msg, 'warn');
+                    if (this.attackManager) this.attackManager.addInternalLog(`[OPTIMIZER] ${msg}`, 'warn');
+                }
                 this.emergencyCleanup(lag, cpuLoad, currentTemp, heapUsage);
             } else {
                 // Reset status jika kondisi membaik
@@ -82,7 +133,8 @@ class SystemOptimizer {
             if (this.attackManager && this.attackManager.io) {
                 this.attackManager.io.emit('system_load', {
                     cpuLoad: cpuLoad.toFixed(2), eventLoopLag: lag.toFixed(0), cpuTemp: currentTemp,
-                    isCritical: this.isCritical, isThrottling: this.isThrottling, isRestarting: this.isRestarting, antiLag: antiLagStatus,
+                    isCritical: this.isCritical, isThrottling: this.isThrottling, isRestarting: this.isRestarting, perfMode: this.perfMode,
+                    antiLag: antiLagStatus, isTempThrottling: this.isTempThrottling,
                     highTempCounter: this.highTempCounter, adaptiveConcurrency: this.getAdaptiveConcurrency(16) // Emit current adaptive concurrency
                 });
             }
@@ -111,7 +163,13 @@ class SystemOptimizer {
         const alStatus = antiLag.getStatus();
         if (alStatus.state === 'PANIC' || parseFloat(alStatus.backpressure) > 90 || lag > 2500 || cpu > 98) {
             this.isRestarting = true;
-            this.logInternal(`GUARDIAN: Initiating DDoSL7 Engine Auto-Restart due to severe congestion.`, 'error');
+            const panicMsg = `!!! SYSTEM PANIC !!! Backpressure: ${alStatus.backpressure}. Performing Load Shedding...`;
+            this.logInternal(panicMsg, 'error');
+            if (this.attackManager) {
+                this.attackManager.addInternalLog(`[CRITICAL] ${panicMsg}`, 'error');
+                this.attackManager.clearQueue(); // Membersihkan antrean secara otomatis saat panic
+            }
+
             this.attackManager.getFullState().then(state => {
                 const activeAttack = state.active.find(t => t.type === 'attack');
                 if (activeAttack) {
@@ -162,6 +220,11 @@ class SystemOptimizer {
 
     getAdaptiveConcurrency(base) {
         const load = os.loadavg()[0];
+        
+        // Jika Overheat, turunkan kecepatan secara software ke titik terendah (1-2 threads)
+        if (this.isTempThrottling) {
+            return 1; 
+        }
         if (this.isCritical) {
             return Math.max(1, Math.floor(base * 0.1));
         }

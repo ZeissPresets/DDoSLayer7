@@ -11,6 +11,7 @@ class MemoryManager {
         this.io = io;
         this.thresholdOpt = 200 * 1024 * 1024;
         this.thresholdMax = 400 * 1024 * 1024;
+        this.thresholdPanic = 450 * 1024 * 1024; // Batas kritis untuk shedding antrean
         this.maxMemory = 512 * 1024 * 1024; // Limit standar Render.com
         this.checkInterval = 1000;
     }
@@ -34,6 +35,11 @@ class MemoryManager {
                 });
             }
 
+            // Logika Emergency Shedding (450MB)
+            if (rss > this.thresholdPanic) {
+                this.triggerQueueShedding();
+            }
+
             // Logika Threshold 200MB (Optimasi Instan)
             if (rss > this.thresholdOpt) {
                 this.autoCleanup(rss, "Optimization Mode");
@@ -50,6 +56,12 @@ class MemoryManager {
             setTimeout(run, this.checkInterval);
         };
         run();
+    }
+
+    triggerQueueShedding() {
+        // Memuat AttackManager secara dinamis untuk menghindari circular dependency
+        const AttackManager = require('./attackManager');
+        AttackManager.clearQueue();
     }
 
     autoCleanup(rss, mode = "") {

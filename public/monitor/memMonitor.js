@@ -1,4 +1,5 @@
 socket.on('memory_stats', (data) => {
+    if (!data || !data.used) return;
     const memoryText = document.getElementById('memoryText');
     const memoryBar = document.getElementById('memoryBar');
     const memoryStatus = document.getElementById('memoryStatus');

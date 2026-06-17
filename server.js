@@ -9,6 +9,7 @@ const { SecurityScanner } = require('./scanning/scanning');
 const { DDoSL7 } = require('./attack/DDoSL7');
 const AttackManager = require('./module/attackManager');
 const MemoryManager = require('./module/memoryManager');
+const SystemMonitor = require('./module/sysMonitor');
 require('./module/proxy');
 const serveron = require('./module/serveron');
 
@@ -18,9 +19,12 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 
 const memoryManager = new MemoryManager(io);
+const sysMonitor = new SystemMonitor(io);
+
 AttackManager.init(io);
 optimizer.setAttackManager(AttackManager); // Pass AttackManager ke optimizer
 memoryManager.start();
+sysMonitor.start();
 serveron.init(io); // serveron.js akan menggunakan AttackManager.io untuk log
 
 app.use(express.json());
@@ -88,6 +92,10 @@ app.post('/api/attack/stop', async (req, res) => {
 io.on('connection', (socket) => {
     console.log('[Socket] Browser terhubung untuk monitoring.');
     AttackManager.syncClient(socket);
+
+    socket.on('change_performance_mode', (mode) => {
+        optimizer.setPerformanceMode(mode);
+    });
 });
 
 server.listen(PORT, () => {

@@ -17,11 +17,11 @@ class AntiLagSystem extends EventEmitter {
         this.alphaSlow = 0.05;
         this.checkInterval = 50; // Interval lebih rapat (50ms) untuk presisi tinggi
         this.lastCongestionEmit = 0;
-        this.maxMemory = 480 * 1024 * 1024; // Batas waspada RAM
+        this.maxMemory = 420 * 1024 * 1024; // Batas waspada RAM diturunkan untuk Render (512MB limit)
         this.thresholds = {
-            warning: 60,   // ms
-            critical: 250, // ms
-            panic: 800     // ms
+            warning: 50,   // ms
+            critical: 200, // ms
+            panic: 600     // ms lag di atas 600ms sudah dianggap bahaya besar
         };
         this.isActive = false;
     }

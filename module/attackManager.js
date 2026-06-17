@@ -4,6 +4,7 @@ const si = require('systeminformation');
 const NodeCache = require('node-cache');
 const events = require('events');
 const DurationManager = require('./duration');
+const antiLag = require('./antiLag');
 
 const stateCache = new NodeCache({ stdTTL: 3600 }); // Cache untuk state terakhir per task
 const activeTasks = new Map(); // Map untuk menyimpan instance task yang sedang berjalan
@@ -27,15 +28,20 @@ class AttackManager extends events.EventEmitter {
         setInterval(async () => {
             const sys = await this.getSystemInfo();
             if (this.io) {
-                this.io.emit('system_load', sys);
+                this.io.emit('process_health', sys);
             }
         }, 2000); // Percepat deteksi load
     }
 
     static startTaskScheduler() {
         setInterval(() => {
-            if (taskQueue.length > 0 && activeTasks.size < 1) {
+            const status = antiLag.getStatus();
+            const pressure = parseFloat(status.backpressure);
+
+            if (taskQueue.length > 0 && activeTasks.size < 1 && pressure < 70) {
                 this.executeTask(taskQueue.shift());
+            } else if (taskQueue.length > 0 && pressure >= 70) {
+                this.addInternalLog(`[SCHEDULER] Task in queue paused. System pressure too high (${pressure}%).`, 'warn');
             }
         }, 1000);
     }
@@ -77,6 +83,15 @@ class AttackManager extends events.EventEmitter {
         const task = activeTasks.get(url);
         if (task) {
             task.data.stats = _.merge(task.data.stats, stats);
+            this.broadcastState();
+        }
+    }
+
+    static clearQueue() {
+        if (taskQueue.length > 0) {
+            const count = taskQueue.length;
+            taskQueue.length = 0; // Kosongkan array antrean
+            this.addInternalLog(`[MEMORY-SHEDDING] Emergency: Menghapus ${count} tugas dari antrean karena penggunaan RAM kritis (>450MB).`, 'error');
             this.broadcastState();
         }
     }

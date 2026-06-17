@@ -10,8 +10,8 @@ const percentProgress = document.getElementById('percentProgress');
 const debugTerminal = document.getElementById('debugTerminal');
 const copyDebugBtn = document.getElementById('copyDebugBtn');
 const stopAttackBtn = document.getElementById('stopAttackBtn');
+const perfMode = document.getElementById('perfMode');
 
-const socket = io();
 let timerInterval;
 let startTime;
 let errorLogs = [];
@@ -96,6 +96,10 @@ scanForm.addEventListener('submit', async (e) => {
     }
 });
 
+perfMode.addEventListener('change', () => {
+    socket.emit('change_performance_mode', perfMode.value);
+});
+
 attackBtn.addEventListener('click', async () => {
     const url = document.getElementById('url').value;
     const duration = document.getElementById('duration').value;
@@ -149,7 +153,12 @@ copyDebugBtn.addEventListener('click', () => {
 
 function addLog(msg, type = 'info') {
     const div = document.createElement('div');
-    div.innerHTML = `<span style="color: ${type === 'error' ? '#f85149' : '#8b949e'}">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+    let color = '#8b949e'; // default info
+    if (type === 'error') color = '#f85149';
+    if (type === 'warn') color = '#d29922';
+    if (type === 'success') color = '#3fb950';
+
+    div.innerHTML = `<span style="color: ${color}">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
     logTerminal.appendChild(div);
     logTerminal.scrollTop = logTerminal.scrollHeight;
 }

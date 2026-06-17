@@ -96,7 +96,7 @@ class SystemMonitor extends EventEmitter {
             data.trend = this.calculateTrend();
             
             if (this.io) {
-                this.io.emit('system_load', data);
+                this.io.emit('os_telemetry', data);
                 
                 if (parseFloat(data.cpu.load) > 90) {
                     this.io.emit('log', { 

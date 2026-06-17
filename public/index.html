@@ -32,6 +32,14 @@
                                 <option value="48h">48 Jam (Extended)</option>
                             </select>
                         </div>
+                        <div class="field">
+                            <label for="perfMode">Performance Profile</label>
+                            <select id="perfMode" style="background: #1c2128; color: #c9d1d9; border: 1px solid #30363d; padding: 5px; border-radius: 4px; font-family: inherit;">
+                                <option value="eco">Eco (65°C Limit)</option>
+                                <option value="normal" selected>Normal (70°C Limit)</option>
+                                <option value="extreme">Extreme (82°C Limit)</option>
+                            </select>
+                        </div>
                         <button type="submit" id="startBtn">Mulai Scan</button>
                         <button type="button" id="attackBtn" style="background: var(--error)">Mulai Attack</button>
                         <button type="button" id="stopAttackBtn" class="btn-stop" style="display: none;">Stop Attack</button>
@@ -89,6 +97,21 @@
                         Optimizer: <span id="optimizerState" style="color: #c9d1d9;">Normal</span> | 
                         Concurrency: <span id="adaptiveConcurrency" style="color: #c9d1d9;">0</span> |
                         High Temp Count: <span id="highTempCount" style="color: #c9d1d9;">0</span>
+                    </div>
+                </div>
+
+                <div class="card status-card">
+                    <h3>Thermal Monitoring (10m)</h3>
+                    <div class="chart-container" style="height: 100px;">
+                        <canvas id="tempChart"></canvas>
+                    </div>
+                    <div id="tempStats" class="percent-text" style="font-size: 0.75rem; margin-top: 5px; color: #8b949e;">Min: -- | Max: -- | Avg: --</div>
+                    <div class="system-details" style="font-size: 0.65rem; color: #8b949e; margin-top: 8px; border-top: 1px solid #30363d; padding-top: 5px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                        <div>NET RX: <span id="netRx" style="color: #c9d1d9">0 MB/s</span></div>
+                        <div>NET TX: <span id="netTx" style="color: #c9d1d9">0 MB/s</span></div>
+                        <div>DISK R: <span id="diskRead" style="color: #c9d1d9">0 KB/s</span></div>
+                        <div>DISK W: <span id="diskWrite" style="color: #c9d1d9">0 KB/s</span></div>
+                        <div style="grid-column: span 2; text-align: center; margin-top: 3px;">Uptime: <span id="sysUptime" style="color: #58a6ff">--</span></div>
                     </div>
                 </div>
 
@@ -153,6 +176,7 @@
         </main>
     </div>
     <script src="/socket.io/socket.io.js"></script>
+    <script>const socket = io();</script>
     <script src="monitor/sysMonitor.js"></script>
     <script src="monitor/memMonitor.js"></script>
     <script src="monitor/targetMonitor.js"></script>

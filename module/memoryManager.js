@@ -9,12 +9,14 @@ const os = require('os');
 class MemoryManager {
     constructor(io, thresholdMb = 400) {
         this.io = io;
-        this.threshold = thresholdMb * 1024 * 1024;
+        this.thresholdOpt = 200 * 1024 * 1024;
+        this.thresholdMax = 400 * 1024 * 1024;
         this.maxMemory = 512 * 1024 * 1024; // Limit standar Render.com
+        this.checkInterval = 1000;
     }
 
     start() {
-        setInterval(() => {
+        const run = () => {
             const usage = process.memoryUsage();
             const rss = usage.rss; // Resident Set Size: Memori aktual yang digunakan container
             const heapUsed = usage.heapUsed;
@@ -32,15 +34,26 @@ class MemoryManager {
                 });
             }
 
-            // Fitur 1: Manajemen Pembersihan Otomatis (Internal Memory Release)
-            if (rss > this.threshold || heapUsed > (this.threshold * 0.9)) {
-                this.autoCleanup(rss);
+            // Logika Threshold 200MB (Optimasi Instan)
+            if (rss > this.thresholdOpt) {
+                this.autoCleanup(rss, "Optimization Mode");
             }
-        }, 3000);
+
+            // Logika Threshold 400MB (Bekerja 2x Lipat lebih agresif)
+            if (rss > this.thresholdMax) {
+                this.checkInterval = 500;
+                this.autoCleanup(rss, "Double Aggressive Mode");
+            } else {
+                this.checkInterval = 1000;
+            }
+
+            setTimeout(run, this.checkInterval);
+        };
+        run();
     }
 
-    autoCleanup(rss) {
-        const msg = `[MEMORY] Limit 400MB reached (${(rss / 1024 / 1024).toFixed(2)}MB). Performing immediate memory release without shutdown...`;
+    autoCleanup(rss, mode = "") {
+        const msg = `[MEMORY] ${mode} active (${(rss / 1024 / 1024).toFixed(2)}MB). Clearing caches...`;
         if (this.io) this.io.emit('log', { msg, type: 'error' });
         
         // Force GC jika Node dijalankan dengan flag --expose-gc

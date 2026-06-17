@@ -48,6 +48,10 @@
                     </div>
                     <div id="durationCounter" class="duration-counter">Elapsed: 0s</div>
                     <div id="percentProgress" class="percent-text">0%</div>
+                    <div id="safeModeIndicator" class="status active" style="display: none; background: #d29922; margin-top: 10px; border: 1px solid #9e6a03; color: white; font-size: 0.8rem;">⚠️ SAFE MODE ACTIVE</div>
+                    <div id="cooldownChartContainer" style="display: none; height: 40px; margin-top: 10px;">
+                        <canvas id="safeModeChart"></canvas>
+                    </div>
                     <div class="chart-container" style="height: 60px; margin-top: 10px;">
                         <canvas id="watchdogChart"></canvas>
                     </div>
@@ -65,6 +69,12 @@
                         <div id="memoryBar" class="progress-bar" style="background: #f1e05a;"></div>
                     </div>
                     <div id="memoryText" class="percent-text">0MB / 512MB (0%)</div>
+                </div>
+
+                <div class="card status-card">
+                    <h3>CPU & Event Loop</h3>
+                    <div class="chart-container"><canvas id="cpuLagChart"></canvas></div>
+                    <div id="cpuLagText" class="percent-text">CPU: 0% | Lag: 0ms | Temp: 0°C</div>
                 </div>
 
                 <div class="card status-card">

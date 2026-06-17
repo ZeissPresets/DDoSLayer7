@@ -1,4 +1,6 @@
+require('./module/optimalization');
 const express = require('express');
+const optimizer = require('./module/optimalization'); // Import optimizer
 const path = require('path');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -16,6 +18,7 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 
 const memoryManager = new MemoryManager(io);
+optimizer.init(); // Pastikan optimizer diinisialisasi
 AttackManager.init(io);
 memoryManager.start();
 serveron.init(io);

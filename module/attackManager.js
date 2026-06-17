@@ -104,10 +104,12 @@ class AttackManager extends events.EventEmitter {
     static async getSystemInfo() {
         const mem = await si.mem();
         const cpu = await si.currentLoad();
+        const temp = await si.cpuTemperature();
         return {
             ramUsed: (mem.active / 1024 / 1024).toFixed(2),
             ramTotal: (mem.total / 1024 / 1024).toFixed(2),
-            cpuLoad: cpu.currentLoad.toFixed(2)
+            cpuLoad: cpu.currentLoad.toFixed(2),
+            cpuTemp: temp.main
         };
     }
 

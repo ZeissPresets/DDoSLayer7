@@ -14,6 +14,7 @@ const targetMovement = document.getElementById('targetMovement');
 const memoryBar = document.getElementById('memoryBar');
 const memoryText = document.getElementById('memoryText');
 const memoryStatus = document.getElementById('memoryStatus');
+const cpuLagText = document.getElementById('cpuLagText');
 const kaSuccess = document.getElementById('kaSuccess');
 const kaFailure = document.getElementById('kaFailure');
 const kaUptime = document.getElementById('kaUptime');
@@ -91,6 +92,77 @@ const watchdogChart = new Chart(watchdogCtx, {
     }
 });
 
+const safeModeCtx = document.getElementById('safeModeChart').getContext('2d');
+const safeModeChart = new Chart(safeModeCtx, {
+    type: 'bar',
+    data: {
+        labels: ['Stability'],
+        datasets: [{
+            label: 'Cooldown Progress',
+            data: [0],
+            backgroundColor: '#d29922',
+            borderRadius: 4
+        }]
+    },
+    options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            x: { 
+                beginAtZero: true, 
+                max: 6, 
+                grid: { display: false }, 
+                ticks: { display: false } 
+            },
+            y: { display: false }
+        },
+        plugins: {
+            legend: { display: false },
+            tooltip: { enabled: false }
+        }
+    }
+});
+
+const cpuLagCtx = document.getElementById('cpuLagChart').getContext('2d');
+const cpuLagChart = new Chart(cpuLagCtx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [
+            {
+                label: 'CPU Load (%)',
+                data: [],
+                borderColor: '#f1e05a',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: false,
+                pointRadius: 0
+            },
+            {
+                label: 'Event Loop Lag (ms)',
+                data: [],
+                borderColor: '#ff7800',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: false,
+                pointRadius: 0,
+                yAxisID: 'lag'
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: { beginAtZero: true, grid: { color: '#30363d' }, ticks: { color: '#8b949e', font: { size: 10 } } },
+            lag: { type: 'linear', position: 'right', beginAtZero: true, grid: { display: false }, ticks: { color: '#ff7800', font: { size: 10 } } },
+            x: { display: false }
+        },
+        plugins: { legend: { display: true, labels: { color: '#c9d1d9' } } }
+    }
+});
+
 const socket = io();
 let timerInterval;
 let startTime;
@@ -123,6 +195,19 @@ socket.on('attack_progress', (stats) => {
     statusIndicator.textContent = `CRITICAL ATTACK: ${stats.requestsSent} PKTS (${stats.progress}%)`;
     progressBar.style.width = `${stats.progress}%`;
     percentProgress.textContent = `${stats.progress}%`;
+
+    // Update Safe Mode Indicator
+    const smIndicator = document.getElementById('safeModeIndicator');
+    const smChartContainer = document.getElementById('cooldownChartContainer');
+    if (stats.safeMode) {
+        smIndicator.style.display = 'block';
+        smChartContainer.style.display = 'block';
+        safeModeChart.data.datasets[0].data = [stats.safeModeCooldown || 0];
+        safeModeChart.update();
+    } else {
+        smIndicator.style.display = 'none';
+        smChartContainer.style.display = 'none';
+    }
 
     // Update AI Panel
     aiStateDisplay.textContent = stats.aiState || "MAX_THROUGHPUT";
@@ -172,8 +257,27 @@ socket.on('memory_stats', (data) => {
 
 socket.on('system_load', (data) => {
     // Sinkronisasi info load server ke UI jika panel tersedia
-    if(document.getElementById('bpIntegrity')) {
-        document.getElementById('bpIntegrity').textContent = `CPU: ${data.cpuLoad}%`;
+    const tempDisplay = data.cpuTemp > 0 ? `${data.cpuTemp}°C` : 'N/A';
+    cpuLagText.textContent = `CPU: ${data.cpuLoad}% | Lag: ${data.eventLoopLag || 0}ms | Temp: ${tempDisplay}`;
+
+    cpuLagChart.data.labels.push(new Date().toLocaleTimeString());
+    cpuLagChart.data.datasets[0].data.push(parseFloat(data.cpuLoad));
+    cpuLagChart.data.datasets[1].data.push(parseFloat(data.eventLoopLag));
+
+    if (cpuLagChart.data.labels.length > 30) {
+        cpuLagChart.data.labels.shift();
+        cpuLagChart.data.datasets[0].data.shift();
+        cpuLagChart.data.datasets[1].data.shift();
+    }
+    cpuLagChart.update();
+    
+    // Logika warna untuk indikator suhu dan load
+    if (data.cpuTemp > 75 || data.isCritical) {
+        cpuLagText.style.color = '#da3633';
+    } else if (data.cpuTemp > 60) {
+        cpuLagText.style.color = '#f1e05a'; // Oranye (Peringatan)
+    } else {
+        cpuLagText.style.color = '#8b949e'; // Normal
     }
 });
 
@@ -198,6 +302,21 @@ socket.on('system_sync', (state) => {
     } else {
         activeTasksList.innerHTML = '<div class="empty-msg">No active tasks</div>';
         updateStatus(false);
+    }
+
+    // Sync Safe Mode State
+    const attackTask = state.active.find(t => t.type === 'attack');
+    const smIndicator = document.getElementById('safeModeIndicator');
+    const smChartContainer = document.getElementById('cooldownChartContainer');
+    
+    if (attackTask && attackTask.stats && attackTask.stats.safeMode) {
+        smIndicator.style.display = 'block';
+        smChartContainer.style.display = 'block';
+        safeModeChart.data.datasets[0].data = [attackTask.stats.safeModeCooldown || 0];
+        safeModeChart.update();
+    } else {
+        smIndicator.style.display = 'none';
+        smChartContainer.style.display = 'none';
     }
 
     // Update Queue
@@ -372,11 +491,19 @@ function resetMonitoring() {
     durationCounter.textContent = 'Elapsed: 0s';
     errorLogs = [];
     debugTerminal.innerHTML = '';
+    document.getElementById('safeModeIndicator').style.display = 'none';
+    document.getElementById('cooldownChartContainer').style.display = 'none';
+    safeModeChart.data.datasets[0].data = [0];
+    safeModeChart.update();
     latencyChart.data.labels = [];
     latencyChart.data.datasets[0].data = [];
     latencyChart.update();
     memoryBar.style.width = '0%';
     memoryText.textContent = '0MB / 512MB (0%)';
+    cpuLagChart.data.labels = [];
+    cpuLagChart.data.datasets[0].data = [];
+    cpuLagChart.data.datasets[1].data = [];
+    cpuLagChart.update();
 }
 
 function addFinding(issue) {

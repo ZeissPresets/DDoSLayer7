@@ -179,6 +179,7 @@ class DDoSL7 {
     async start() {
         await this.init();
         if (cluster.isMaster) {
+            const AttackManager = require('../module/attackManager'); // Import di sini
             os.cpus().forEach(() => {
                 const fork = cluster.fork();
                 this.workers.push(fork);
@@ -226,6 +227,7 @@ class DDoSL7 {
     emitStats() {
         const progress = DurationManager.getProgress(this.startTime, this.duration);
         if (this.io) {
+            const AttackManager = require('../module/attackManager'); // Import di sini
             this.io.emit('attack_progress', { 
                     ...this.stats, 
                     progress, 
@@ -253,6 +255,7 @@ class DDoSL7 {
                 const end = performance.now();
                 const latency = end - start;
                 this.ai.analyze(this.stats, latency);
+                const AttackManager = require('../module/attackManager'); // Import di sini
                 
                 if (this.io) {
                     this.io.emit('target_movement', {
@@ -600,12 +603,14 @@ class DDoSL7 {
     emitLog(msg, type) {
         const timestamp = new Date().toLocaleTimeString();
         const formattedMsg = msg;
+        const AttackManager = require('../module/attackManager'); // Import di sini
         AttackManager.addInternalLog(formattedMsg, type);
     }
 
     stop() {
         this.isRunning = false;
         this.workers.forEach(w => w.terminate());
+        const AttackManager = require('../module/attackManager'); // Import di sini
         AttackManager.remove(this.target);
         this.emitLog(`[END] Stress Test Terminated. Total Packets: ${this.stats.requestsSent}`, 'success');
         if (this.io) this.io.emit('attack_complete', this.stats);

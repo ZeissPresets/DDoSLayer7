@@ -11,6 +11,7 @@ const net = require('net');
 const url = require('url');
 const zlib = require('zlib');
 
+let AttackManager; // Deklarasi di luar agar bisa diakses
 class SecurityScanner {
     constructor(targetUrl, io = null, durationStr = '1m') {
         this.targetUrl = targetUrl.replace(/\/$/, "");
@@ -33,10 +34,12 @@ class SecurityScanner {
     }
 
     emitLog(msg, type = 'info') {
+        if (!AttackManager) AttackManager = require('../module/attackManager');
         AttackManager.addInternalLog(msg, type);
     }
 
     async start() {
+        if (!AttackManager) AttackManager = require('../module/attackManager');
         return this.startFullAudit();
     }
 
@@ -44,10 +47,12 @@ class SecurityScanner {
         this.emitLog(`[*] CORE: Deep Scan Engagement: ${this.targetUrl}`, 'info');
         try {
             // Update progress awal ke Manager
+            if (!AttackManager) AttackManager = require('../module/attackManager');
             AttackManager.updateStats(this.targetUrl, { progress: 10, status: 'Initializing' });
 
             await Promise.all([
                 this.dnsRecon(),
+                // ... (modul scanning lainnya)
                 this.portScan(),
                 this.checkSecurityHeaders(),
                 this.fingerprintStack(),
@@ -60,11 +65,13 @@ class SecurityScanner {
                 this.testVulnerabilities()
             ]);
 
+            if (!AttackManager) AttackManager = require('../module/attackManager');
             AttackManager.updateStats(this.targetUrl, { progress: 100, status: 'Completed' });
             if (this.io) this.io.emit('scan_complete', { status: 'success', target: this.targetUrl });
             AttackManager.complete(this.targetUrl);
         } catch (error) {
             this.emitLog(`[!] FATAL: ${error.message}`, 'error');
+            if (!AttackManager) AttackManager = require('../module/attackManager');
             AttackManager.complete(this.targetUrl, 'failed');
         }
     }

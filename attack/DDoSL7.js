@@ -216,6 +216,7 @@ class DDoSL7 {
             Object.keys(msg.data.vectors).forEach(k => this.stats.vectors[k] += msg.data.vectors[k]);
             if (this.stats.requestsSent % 5000 === 0) {
                 this.emitStats();
+                AttackManager.updateStats(this.target, { ...this.stats });
             }
         }
     }
@@ -597,10 +598,10 @@ class DDoSL7 {
     emitLog(msg, type) {
         const timestamp = new Date().toLocaleTimeString();
         const formattedMsg = `[${timestamp}] ${msg}`;
-        const colorName = type === 'error' ? 'red' : (type === 'success' ? 'green' : 'yellow');
+        const color = type === 'error' ? chalk.red : (type === 'success' ? chalk.green : chalk.yellow);
         
         if (this.io) this.io.emit('log', { msg: formattedMsg, type });
-        console.log(chalkcolorName);
+        console.log(color(formattedMsg));
     }
 
     stop() {

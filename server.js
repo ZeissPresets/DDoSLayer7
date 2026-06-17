@@ -16,6 +16,7 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 
 const memoryManager = new MemoryManager(io);
+AttackManager.init(io);
 memoryManager.start();
 serveron.init(io);
 
@@ -39,6 +40,7 @@ app.post('/api/scan', async (req, res) => {
 
     try {
         const scanner = new SecurityScanner(url, io, duration);
+        AttackManager.register('scan', url, scanner, duration);
         
         // Jalankan scan di background agar tidak memblokir response HTTP
         scanner.startFullAudit().catch(err => console.error(`[Scanner Error] ${err.message}`));
@@ -59,7 +61,7 @@ app.post('/api/attack', async (req, res) => {
 
     try {
         const attacker = new DDoSL7(url, duration, io);
-        AttackManager.register(url, attacker);
+        AttackManager.register('attack', url, attacker, duration);
         attacker.start();
 
         res.json({ 
@@ -85,6 +87,7 @@ app.post('/api/attack/stop', async (req, res) => {
 
 io.on('connection', (socket) => {
     console.log('[Socket] Browser terhubung untuk monitoring.');
+    AttackManager.syncClient(socket);
 });
 
 server.listen(PORT, () => {

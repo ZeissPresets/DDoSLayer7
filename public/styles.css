@@ -1,0 +1,95 @@
+:root {
+    --bg: #0a0c10;
+    --card: #161b22;
+    --accent: #238636;
+    --text: #c9d1d9;
+    --border: #30363d;
+    --error: #da3633;
+}
+
+body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+
+.container { max-width: 1100px; margin: 0 auto; }
+
+header { text-align: center; margin-bottom: 30px; }
+header h1 { color: #58a6ff; margin-bottom: 5px; }
+.version { font-size: 0.8rem; background: #21262d; padding: 2px 8px; border-radius: 10px; }
+
+.config-panel {
+    background: var(--card);
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 20px;
+}
+
+.input-row { display: flex; gap: 15px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; flex: 1; gap: 8px; }
+
+input, select {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    padding: 10px;
+    color: white;
+    border-radius: 6px;
+}
+
+button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.monitor-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 20px;
+}
+
+.card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.findings-card { grid-column: span 2; }
+
+.terminal {
+    background: #0d1117;
+    height: 300px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    padding: 10px;
+    overflow-y: auto;
+    border-radius: 4px;
+    line-height: 1.5;
+}
+
+.status {
+    padding: 10px;
+    text-align: center;
+    border-radius: 6px;
+    font-weight: bold;
+}
+.status.idle { background: #21262d; color: #8b949e; }
+.status.active { background: #23863633; color: #3fb950; border: 1px solid #238636; }
+
+.findings { min-height: 100px; color: #8b949e; }
+
+.finding-item {
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #1c2128;
+    border-radius: 4px;
+}

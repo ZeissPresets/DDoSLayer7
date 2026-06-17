@@ -143,3 +143,29 @@ button {
     height: 150px;
     margin-bottom: 10px;
 }
+
+.data-grid { font-size: 0.8rem; color: #8b949e; }
+.empty-msg { font-style: italic; color: #484f58; text-align: center; padding: 10px; }
+.stat-item { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #21262d; font-size: 0.85rem; }
+.stat-item .val { color: #58a6ff; font-family: 'JetBrains Mono', monospace; }
+
+.weights-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+}
+.weight-box {
+    background: #0d1117;
+    padding: 5px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    border-left: 3px solid #58a6ff;
+}
+.weight-box b { color: #3fb950; }
+
+.task-item {
+    background: #1c2128;
+    padding: 8px;
+    border-radius: 4px;
+    margin-bottom: 5px;
+}

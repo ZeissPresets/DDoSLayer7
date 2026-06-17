@@ -75,6 +75,31 @@
                     <div id="targetMovement" class="movement-container">Waiting for data...</div>
                 </div>
 
+                <div class="card status-card">
+                    <h3>Orchestrator & Queue</h3>
+                    <div id="activeTasksList" class="data-grid">
+                        <div class="empty-msg">No active tasks</div>
+                    </div>
+                    <div id="queueList" class="data-grid small" style="border-top: 1px solid var(--border); margin-top: 10px; padding-top: 5px;">
+                        <div class="empty-msg">Queue is empty</div>
+                    </div>
+                </div>
+
+                <div class="card status-card">
+                    <h3>Bypass & Identity Engine</h3>
+                    <div class="bypass-stats">
+                        <div class="stat-item">Fingerprint: <span id="bpFingerprint" class="val">Standard</span></div>
+                        <div class="stat-item">Integrity: <span id="bpIntegrity" class="val">Stable</span></div>
+                        <div class="stat-item">Proxies: <span id="bpProxies" class="val">0 Loaded</span></div>
+                    </div>
+                </div>
+
+                <div class="card status-card">
+                    <h3>AI Strategy Engine</h3>
+                    <div id="aiStateDisplay" class="status idle" style="margin-bottom: 10px;">ANALYZING</div>
+                    <div id="vectorWeights" class="weights-grid"></div>
+                </div>
+
                 <div class="card log-card">
                     <h3>Live Scan Logs</h3>
                     <div id="logTerminal" class="terminal">

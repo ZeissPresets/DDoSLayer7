@@ -54,7 +54,7 @@ class SecurityScanner {
                 this.checkCORS(),
                 this.testVulnerabilities()
             ]);
-            this.saveFinalReport();
+            if (this.io) this.io.emit('scan_complete', { status: 'success' });
         } catch (error) {
             this.emitLog(`[!] FATAL: ${error.message}`, 'error');
         }
@@ -262,13 +262,6 @@ class SecurityScanner {
         const issue = { severity, description, foundAt: new Date().toISOString() };
         this.report.vulnerabilities.push(issue);
         if (this.io) this.io.emit('vulnerability', issue);
-    }
-
-    saveFinalReport() {
-        const reportPath = path.join(__dirname, `report-${Date.now()}.json`);
-        fs.writeFileSync(reportPath, JSON.stringify(this.report, null, 4));
-        console.log(chalk.blue.bold(`\n[*] Audit Selesai. Laporan tersimpan di: ${reportPath}`));
-        if (this.io) this.io.emit('scan_complete', { reportPath });
     }
 }
 

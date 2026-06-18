@@ -16,6 +16,7 @@ const MAX_LOGS = 100;
 class AttackManager extends events.EventEmitter {
     static io = null;
     static isInitialized = false;
+    static remoteStatus = 'disconnect';
     // Menggunakan URL lengkap (Protokol + Domain + Path)
     static remoteBridgeUrl = 'https://ddoslayer7.page.gd/index.php'; 
     static apiKey = 'Zenn1221';
@@ -37,6 +38,7 @@ class AttackManager extends events.EventEmitter {
             const sys = await this.getSystemInfo();
             if (this.io) {
                 this.io.emit('process_health', sys);
+                this.io.emit('remote_status', { status: this.remoteStatus });
             }
         }, 2000); // Percepat deteksi load
 
@@ -103,7 +105,9 @@ class AttackManager extends events.EventEmitter {
         }
         
         // Kirim ke remote database untuk mengurangi beban RAM & persistent storage
-        this.getSystemInfo().then(sys => {
+        // Gunakan setImmediate agar logging tidak memblokir event loop utama
+        setImmediate(async () => {
+            const sys = await this.getSystemInfo();
             const optimizer = require('./optimalization');
             this.sendToRemote('save_log', {
                 type: type,
@@ -120,13 +124,21 @@ class AttackManager extends events.EventEmitter {
 
     static async sendToRemote(action, data) {
         try {
-            await axios.post(this.remoteBridgeUrl, {
+            const response = await axios.post(this.remoteBridgeUrl, {
                 api_key: this.apiKey,
                 action: action,
                 ...data
             }, { timeout: 5000 });
+            
+            if (response.status === 200 && this.remoteStatus !== 'active') {
+                this.remoteStatus = 'active';
+                this.addInternalLog(`[REMOTE] Handshake successful. Connection to InfinityFree is ACTIVE.`, 'success');
+            }
         } catch (e) {
-            // Fail silently agar tidak mengganggu performa utama jika koneksi lambat
+            if (this.remoteStatus !== 'disconnect') {
+                this.remoteStatus = 'disconnect';
+                this.addInternalLog(`[REMOTE] Connection lost! Database InfinityFree is DISCONNECT.`, 'error');
+            }
         }
     }
 

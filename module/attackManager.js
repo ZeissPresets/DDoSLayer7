@@ -19,7 +19,7 @@ class AttackManager extends events.EventEmitter {
     static remoteStatus = 'disconnect';
     
     // MongoDB Atlas Configuration
-    static mongoUri = "mongodb+srv://USER:PASS@CLUSTER.mongodb.net/?retryWrites=true&w=majority";
+    static mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/DDoSLayer7";
     static dbName = "DDoSLayer7";
     static client = null;
     static db = null;
@@ -29,6 +29,10 @@ class AttackManager extends events.EventEmitter {
         this.io = io;
         
         // Koneksi ke MongoDB Atlas
+        if (!process.env.MONGODB_URI) {
+            this.addInternalLog("[DATABASE] Warning: MONGODB_URI not set, using local fallback.", "warn");
+        }
+
         try {
             this.client = new MongoClient(this.mongoUri);
             await this.client.connect();

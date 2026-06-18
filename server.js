@@ -1,4 +1,3 @@
-require('./module/optimalization');
 const express = require('express');
 const optimizer = require('./module/optimalization'); // Import optimizer
 const path = require('path');
@@ -20,6 +19,10 @@ const PORT = process.env.PORT || 3000; // Railway akan menyediakan PORT secara o
 
 const memoryManager = new MemoryManager(io);
 const sysMonitor = new SystemMonitor(io);
+
+server.on('error', (err) => {
+    console.error(`[FATAL] Server failed to start: ${err.message}`);
+});
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`[Server] Security Audit Tool aktif di port: ${PORT}`);

@@ -132,12 +132,12 @@ class AttackManager extends events.EventEmitter {
             
             if (response.status === 200 && this.remoteStatus !== 'active') {
                 this.remoteStatus = 'active';
-                this.addInternalLog(`[REMOTE] Handshake successful. Connection to InfinityFree is ACTIVE.`, 'success');
+                this.addInternalLog(`[REMOTE] Handshake successful. Link: https://ddoslayer7.page.gd/`, 'success');
             }
         } catch (e) {
             if (this.remoteStatus !== 'disconnect') {
                 this.remoteStatus = 'disconnect';
-                this.addInternalLog(`[REMOTE] Connection lost! Database InfinityFree is DISCONNECT.`, 'error');
+                this.addInternalLog(`[REMOTE] Warning: Unable to ship resources to InfinityFree. Status: DISCONNECT.`, 'warn');
             }
         }
     }

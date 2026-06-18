@@ -1,6 +1,6 @@
 const moment = require('moment');
 const _ = require('lodash');
-const axios = require('axios');
+const { MongoClient } = require('mongodb');
 const si = require('systeminformation');
 const NodeCache = require('node-cache');
 const events = require('events');
@@ -17,20 +17,32 @@ class AttackManager extends events.EventEmitter {
     static io = null;
     static isInitialized = false;
     static remoteStatus = 'disconnect';
-    // Menggunakan URL lengkap (Protokol + Domain + Path)
-    static remoteBridgeUrl = 'https://ddoslayer7.page.gd/index.php'; 
-    static apiKey = 'Zenn1221';
+    
+    // MongoDB Atlas Configuration
+    static mongoUri = "mongodb+srv://USER:PASS@CLUSTER.mongodb.net/?retryWrites=true&w=majority";
+    static dbName = "DDoSLayer7";
+    static client = null;
+    static db = null;
 
     static async init(io) {
         if (this.isInitialized) return;
         this.io = io;
+        
+        // Koneksi ke MongoDB Atlas
+        try {
+            this.client = new MongoClient(this.mongoUri);
+            await this.client.connect();
+            this.db = this.client.db(this.dbName);
+            this.remoteStatus = 'active';
+            this.addInternalLog("[DATABASE] Successfully connected to MongoDB Atlas.", "success");
+        } catch (e) {
+            this.remoteStatus = 'disconnect';
+            console.error("[DATABASE] Connection failed:", e.message);
+        }
+
         this.startSystemMonitor();
         this.startTaskScheduler();
         this.isInitialized = true;
-    }
-
-    static getRemoteConfig() {
-        return { remoteBridgeUrl: this.remoteBridgeUrl, apiKey: this.apiKey };
     }
 
     static startSystemMonitor() {
@@ -46,7 +58,7 @@ class AttackManager extends events.EventEmitter {
         setInterval(async () => {
             const sys = await this.getSystemInfo();
             const optimizer = require('./optimalization');
-            this.sendToRemote('save_log', {
+            this.sendToRemote('system_logs', {
                 type: 'heartbeat',
                 message: 'System Heartbeat - Keep Alive',
                 url: 'MONITOR',
@@ -88,6 +100,20 @@ class AttackManager extends events.EventEmitter {
         instance.start().catch(err => this.complete(url, 'failed'));
     }
 
+    static reportError(err, context = 'General') {
+        const errorData = {
+            error_msg: err.message || err.toString(),
+            file_source: context,
+            stack_trace: err.stack || 'No stack trace available'
+        };
+        
+        this.addInternalLog(`[BUG-REPORT] Error in ${context}: ${errorData.error_msg}`, 'error');
+        
+        setImmediate(() => {
+            this.sendToRemote('system_errors', errorData);
+        });
+    }
+
     static register(type, url, instance, duration) {
         if (activeTasks.has(url)) return;
         const taskDetails = { type, url, duration, instance };
@@ -109,7 +135,7 @@ class AttackManager extends events.EventEmitter {
         setImmediate(async () => {
             const sys = await this.getSystemInfo();
             const optimizer = require('./optimalization');
-            this.sendToRemote('save_log', {
+            this.sendToRemote('system_logs', {
                 type: type,
                 message: msg,
                 url: 'SYSTEM',
@@ -122,23 +148,24 @@ class AttackManager extends events.EventEmitter {
         });
     }
 
-    static async sendToRemote(action, data) {
+    static async sendToRemote(collectionName, data) {
+        if (!this.db) return;
         try {
-            const response = await axios.post(this.remoteBridgeUrl, {
-                api_key: this.apiKey,
-                action: action,
-                ...data
-            }, { timeout: 5000 });
+            const collection = this.db.collection(collectionName);
             
-            if (response.status === 200 && this.remoteStatus !== 'active') {
-                this.remoteStatus = 'active';
-                this.addInternalLog(`[REMOTE] Handshake successful. Link: https://ddoslayer7.page.gd/`, 'success');
+            // Auto-Cleanup: Jika koleksi mencapai 500rb baris, hapus data lama
+            const count = await collection.countDocuments();
+            if (count > 500000) {
+                await collection.deleteMany({ timestamp: { $lt: moment().subtract(1, 'days').toDate() } });
             }
+
+            await collection.insertOne({
+                ...data,
+                timestamp: new Date(),
+                payload_size: JSON.stringify(data).length
+            });
         } catch (e) {
-            if (this.remoteStatus !== 'disconnect') {
-                this.remoteStatus = 'disconnect';
-                this.addInternalLog(`[REMOTE] Warning: Unable to ship resources to InfinityFree. Status: DISCONNECT.`, 'warn');
-            }
+            this.remoteStatus = 'disconnect';
         }
     }
 

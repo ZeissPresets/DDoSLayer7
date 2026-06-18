@@ -62,6 +62,7 @@ app.post('/api/scan', async (req, res) => {
             target: url 
         });
     } catch (error) {
+        AttackManager.reportError(error, 'API: /api/scan');
         res.status(500).json({ error: "Gagal menginisialisasi scanner." });
     }
 });
@@ -80,6 +81,7 @@ app.post('/api/attack', async (req, res) => {
             message: `Attack simulation dimulai selama ${duration}` 
         });
     } catch (error) {
+        AttackManager.reportError(error, 'API: /api/attack');
         res.status(500).json({ error: "Gagal memulai simulasi attack" });
     }
 });
@@ -88,11 +90,16 @@ app.post('/api/attack/stop', async (req, res) => {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: "URL target diperlukan" });
 
-    const stopped = AttackManager.stop(url);
-    if (stopped) {
-        res.json({ message: "Serangan dihentikan secara paksa." });
-    } else {
-        res.status(404).json({ error: "Tidak ada serangan aktif untuk URL ini." });
+    try {
+        const stopped = await AttackManager.stop(url);
+        if (stopped) {
+            res.json({ message: "Serangan dihentikan secara paksa." });
+        } else {
+            res.status(404).json({ error: "Tidak ada serangan aktif untuk URL ini." });
+        }
+    } catch (error) {
+        AttackManager.reportError(error, 'API: /api/attack/stop');
+        res.status(500).json({ error: "Gagal menghentikan simulasi attack" });
     }
 });
 

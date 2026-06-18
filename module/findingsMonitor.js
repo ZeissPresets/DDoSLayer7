@@ -1,5 +1,4 @@
 const _ = require('lodash');
-const axios = require('axios');
 const AttackManager = require('./attackManager'); // Import AttackManager untuk konfigurasi remote
 
 class FindingsMonitor {
@@ -9,10 +8,6 @@ class FindingsMonitor {
         this.vulnerabilities = [];
         this.MAX_LOCAL_FINDINGS = 50; // Batasi jumlah temuan lokal untuk display
 
-        // Ambil konfigurasi remote dari AttackManager
-        const remoteConfig = AttackManager.getRemoteConfig();
-        this.remoteBridgeUrl = remoteConfig.remoteBridgeUrl;
-        this.apiKey = remoteConfig.apiKey;
         this.severityCounts = { Critical: 0, High: 0, Medium: 0, Low: 0 };
     }
 
@@ -55,20 +50,14 @@ class FindingsMonitor {
         }
 
         // Kirim temuan ke remote database untuk penyimpanan persisten
-        this.sendToRemote('save_finding', {
+        this.sendToRemote('scan_findings', {
             severity: finding.severity,
             description: finding.description // Kirim deskripsi lengkap
         });
     }
 
-    async sendToRemote(action, data) {
-        try {
-            await axios.post(this.remoteBridgeUrl, {
-                api_key: this.apiKey,
-                action: action,
-                ...data
-            }, { timeout: 5000 });
-        } catch (e) { /* Fail silently */ }
+    async sendToRemote(collection, data) {
+        AttackManager.sendToRemote(collection, data);
     }
 
     assignCVSS(severity) {

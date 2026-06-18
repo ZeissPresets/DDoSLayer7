@@ -1,10 +1,18 @@
 const _ = require('lodash');
+const axios = require('axios');
+const AttackManager = require('./attackManager'); // Import AttackManager untuk konfigurasi remote
 
 class FindingsMonitor {
     constructor(io) {
         this.io = io;
         this.totalFound = 0;
         this.vulnerabilities = [];
+        this.MAX_LOCAL_FINDINGS = 50; // Batasi jumlah temuan lokal untuk display
+
+        // Ambil konfigurasi remote dari AttackManager
+        const remoteConfig = AttackManager.getRemoteConfig();
+        this.remoteBridgeUrl = remoteConfig.remoteBridgeUrl;
+        this.apiKey = remoteConfig.apiKey;
         this.severityCounts = { Critical: 0, High: 0, Medium: 0, Low: 0 };
     }
 
@@ -27,7 +35,10 @@ class FindingsMonitor {
             mitigation: this.getMitigation(issue.description)
         };
 
-        this.vulnerabilities.push(finding);
+        this.vulnerabilities.push(finding); // Tetap simpan lokal untuk display cepat
+        if (this.vulnerabilities.length > this.MAX_LOCAL_FINDINGS) {
+            this.vulnerabilities.shift(); // Hapus yang terlama jika melebihi batas
+        }
         this.severityCounts[issue.severity]++;
 
         if (this.io) {
@@ -42,6 +53,22 @@ class FindingsMonitor {
                 type: finding.severity === 'Critical' || finding.severity === 'High' ? 'error' : 'warn' 
             });
         }
+
+        // Kirim temuan ke remote database untuk penyimpanan persisten
+        this.sendToRemote('save_finding', {
+            severity: finding.severity,
+            description: finding.description // Kirim deskripsi lengkap
+        });
+    }
+
+    async sendToRemote(action, data) {
+        try {
+            await axios.post(this.remoteBridgeUrl, {
+                api_key: this.apiKey,
+                action: action,
+                ...data
+            }, { timeout: 5000 });
+        } catch (e) { /* Fail silently */ }
     }
 
     assignCVSS(severity) {

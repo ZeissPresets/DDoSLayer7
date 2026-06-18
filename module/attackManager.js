@@ -1,5 +1,6 @@
 const moment = require('moment');
 const _ = require('lodash');
+const axios = require('axios');
 const si = require('systeminformation');
 const NodeCache = require('node-cache');
 const events = require('events');
@@ -15,6 +16,9 @@ const MAX_LOGS = 100;
 class AttackManager extends events.EventEmitter {
     static io = null;
     static isInitialized = false;
+    // Menggunakan URL lengkap (Protokol + Domain + Path)
+    static remoteBridgeUrl = 'https://ddoslayer7.page.gd/database.php'; 
+    static apiKey = 'Zenn1221';
 
     static async init(io) {
         if (this.isInitialized) return;
@@ -22,6 +26,10 @@ class AttackManager extends events.EventEmitter {
         this.startSystemMonitor();
         this.startTaskScheduler();
         this.isInitialized = true;
+    }
+
+    static getRemoteConfig() {
+        return { remoteBridgeUrl: this.remoteBridgeUrl, apiKey: this.apiKey };
     }
 
     static startSystemMonitor() {
@@ -77,6 +85,31 @@ class AttackManager extends events.EventEmitter {
         if (this.io) {
             this.io.emit('log', logEntry);
         }
+        
+        // Kirim ke remote database untuk mengurangi beban RAM & persistent storage
+        this.getSystemInfo().then(sys => {
+            this.sendToRemote('save_log', {
+                type: type,
+                message: msg,
+                url: 'SYSTEM',
+                cpu_info: sys.cpuBrand,
+                cpu_speed: sys.cpuSpeed,
+                net_rx: sys.netRx,
+                net_tx: sys.netTx
+            });
+        });
+    }
+
+    static async sendToRemote(action, data) {
+        try {
+            await axios.post(this.remoteBridgeUrl, {
+                api_key: this.apiKey,
+                action: action,
+                ...data
+            }, { timeout: 5000 });
+        } catch (e) {
+            // Fail silently agar tidak mengganggu performa utama jika koneksi lambat
+        }
     }
 
     static async updateStats(url, stats) {
@@ -117,13 +150,19 @@ class AttackManager extends events.EventEmitter {
 
     static async getSystemInfo() {
         const mem = await si.mem();
-        const cpu = await si.currentLoad();
+        const cpuLoad = await si.currentLoad();
+        const cpuInfo = await si.cpu();
+        const net = await si.networkStats();
         const temp = await si.cpuTemperature();
         return {
             ramUsed: (mem.active / 1024 / 1024).toFixed(2),
             ramTotal: (mem.total / 1024 / 1024).toFixed(2),
-            cpuLoad: cpu.currentLoad.toFixed(2),
-            cpuTemp: temp.main
+            cpuLoad: cpuLoad.currentLoad.toFixed(2),
+            cpuTemp: temp.main,
+            cpuBrand: `${cpuInfo.manufacturer} ${cpuInfo.brand}`,
+            cpuSpeed: `${cpuInfo.speed} GHz`,
+            netRx: net.length > 0 ? `${(net[0].rx_sec / 1024 / 1024).toFixed(2)} MB/s` : '0 MB/s',
+            netTx: net.length > 0 ? `${(net[0].tx_sec / 1024 / 1024).toFixed(2)} MB/s` : '0 MB/s'
         };
     }
 
